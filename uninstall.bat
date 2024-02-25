@@ -38,6 +38,11 @@ if exist price_tables.db (
     del /q price_tables.db
 )
 
+if exist start.bat (
+    echo Rimozione del file start.bat...
+    del /q start.bat
+)
+
 :: Rimuovi il job schedulato
 schtasks /delete /tn "EseguiScriptPythonOgniGiorno" /f
 

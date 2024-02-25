@@ -56,6 +56,16 @@ if exist "%DATABASE_PATH%" (
     echo Database creato.
 )
 
+:: Crea start.bat con il comando desiderato
+(
+echo @echo off
+echo echo Esecuzione PriceWatcherBot in corso...
+echo ".\%VENV_SCRIPTS_PATH%\python.exe" main.py
+echo echo.
+echo echo Premere un tasto per uscire...
+echo pause>nul
+) > start.bat
+
 :: Configuro le variabili di configurazione
 echo Configurazione di config_sample.py...
 copy config_sample.py config.py
