@@ -5,15 +5,6 @@ CREATE TABLE IF NOT EXISTS "users" (
     created_at TEXT
 );
 
-CREATE TABLE IF NOT EXISTS "variation_price" (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    idprodotto INTEGER, 
-    oldprice REAL NOT NULL, 
-    newprice REAL NOT NULL,
-    updated_at DATETIME,
-    FOREIGN KEY (idprodotto) REFERENCES products(id)
-);
-
 CREATE TABLE IF NOT EXISTS "products" (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     product_name TEXT,
@@ -22,6 +13,15 @@ CREATE TABLE IF NOT EXISTS "products" (
     asin TEXT,
     category TEXT,
     created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "variation_price" (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    idprodotto INTEGER, 
+    oldprice REAL NOT NULL, 
+    newprice REAL NOT NULL,
+    updated_at DATETIME,
+    FOREIGN KEY (idprodotto) REFERENCES products(id)
 );
 
 CREATE TABLE IF NOT EXISTS "product_user" (

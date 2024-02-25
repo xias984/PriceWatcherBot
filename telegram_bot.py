@@ -31,7 +31,6 @@ class TelegramBot:
                 if params and params[0]:
                     message_response = self.db_manager.insert_into_db(userid, username, params, url)
                     await context.bot.send_message(chat_id=update.effective_chat.id, text=message_response)
-                    # La pianificazione di check_price_updates potrebbe richiedere un approccio diverso per l'integrazione corretta
                 else:
                     await context.bot.send_message(chat_id=update.effective_chat.id, text="Non sono riuscito a trovare il prezzo.")
             else:
@@ -43,13 +42,11 @@ class TelegramBot:
         user = update.effective_user
         userid = str(user.id)
         
-        # Usa l'istanza di DatabaseManager per eseguire le query
         try:
             results = self.db_manager.get_user_products(userid)
             
             if results:
                 for record in results:
-                    # Estrai i dati specifici di ogni prodotto
                     product_asin, product_name, product_price, product_url = record[4], record[1], record[2], record[3]
                     message = f"<b>ASIN</b>: {product_asin} \n<b>NOME</b>: <a href='{product_url}'>{product_name}</a> \n<b>PREZZO</b>: {product_price} €"
                     await context.bot.send_message(
