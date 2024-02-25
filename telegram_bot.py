@@ -29,7 +29,7 @@ class TelegramBot:
             if "amazon." in url or "amzn." in url:
                 params = self.amazon_scraper.fetch_amazon_data(url)
                 if params and params[0]:
-                    message_response = self.db_manager.insert_into_db(userid, username, params, url)
+                    message_response = self.db_manager.insert_into_db(userid, username, params)
                     await context.bot.send_message(chat_id=update.effective_chat.id, text=message_response)
                 else:
                     await context.bot.send_message(chat_id=update.effective_chat.id, text="Non sono riuscito a trovare il prezzo.")

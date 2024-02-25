@@ -13,7 +13,7 @@ class DatabaseManager:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.conn.close()
 
-    def insert_into_db(self, userid, username, amz_data, url):
+    def insert_into_db(self, userid, username, amz_data):
         now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         message_response = ""
 
@@ -26,7 +26,7 @@ class DatabaseManager:
             else:
                 self.c.execute(
                     "INSERT INTO products (product_name, created_at, price, url, asin, category) VALUES (?, ?, ?, ?, ?, ?)",
-                    (amz_data[1], now, amz_data[0], url, amz_data[2], amz_data[3])
+                    (amz_data[1], now, amz_data[0], amz_data[4], amz_data[2], amz_data[3])
                 )
                 product_id = self.c.lastrowid
 
@@ -46,15 +46,24 @@ class DatabaseManager:
 
             self.conn.commit()
 
-            try:
-                self.c.execute(
-                    "INSERT INTO product_user (user_id, product_id, created_at) VALUES (?, ?, ?)",
-                    (user_id, product_id, now)
+            self.c.execute(
+                    "SELECT product_id FROM product_user WHERE product_id = ? AND user_id = ?",
+                    (product_id, user_id)
                 )
-                self.conn.commit()
-                message_response = "Prodotto aggiunto correttamente, ora ti terremo aggiornato qualora il prezzo variasse."
-            except sqlite3.IntegrityError:
-                message_response = "Errore: questa associazione prodotto-utente esiste già. Digita /list per visualizzare tutti i prodotti che hai inserito nel nostro sistema."
+            n_prod = self.c.fetchall()
+            
+            if len(n_prod) == 0:
+                try:
+                    self.c.execute(
+                        "INSERT INTO product_user (user_id, product_id, created_at) VALUES (?, ?, ?)",
+                        (user_id, product_id, now)
+                    )
+                    self.conn.commit()
+                    message_response = "Prodotto aggiunto correttamente, ora ti terremo aggiornato qualora il prezzo variasse."
+                except sqlite3.IntegrityError:
+                    message_response = "Errore: questa associazione prodotto-utente esiste già. Digita /list per visualizzare tutti i prodotti che hai inserito nel nostro sistema."
+            else:
+                message_response = 'Prodotto già presente nella tua lista dei prodotti che stai monitorando.'
 
         except sqlite3.Error as e:
             message_response = f"Errore durante l'accesso al database: {e}"
