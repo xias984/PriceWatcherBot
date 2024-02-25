@@ -103,8 +103,23 @@ class DatabaseManager:
             print(f"Errore durante l'accesso al database: {e}")
             return []
         
+    def get_recent_price_changes(self):
+        now = datetime.now().strftime('%Y-%m-%d')
+        try:
+            self.c.execute("""SELECT P.product_name, P.url, U.idtelegram, VP.newprice, VP.oldprice 
+                FROM variation_price AS VP 
+                LEFT JOIN products AS P ON VP.idprodotto = P.id 
+                LEFT JOIN product_user AS PU ON P.id = PU.product_id 
+                LEFT JOIN users AS U ON PU.user_id = U.id
+                WHERE VP.updated_at = ?
+            """, (now,))
+            return self.c.fetchall()
+        except sqlite3.Error as e:
+            print(f"Errore durante l'accesso al database: {e}")
+            return []
+        
     def update_variation_price(self, idprod, oldprice, newprice):
-        now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        now = datetime.now().strftime('%Y-%m-%d')
         try:
             self.c.execute("""
                 INSERT INTO variation_price (idprodotto, oldprice, newprice, updated_at) 

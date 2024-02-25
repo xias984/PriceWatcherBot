@@ -8,29 +8,14 @@ if exist __pycache__ (
     rmdir /s /q __pycache__
 )
 
-if exist bot (
-    echo Rimozione della cartella bot...
-    rmdir /s /q bot
-)
-
-if exist build (
-    echo Rimozione della cartella build...
-    rmdir /s /q build
-)
-
-if exist dist (
-    echo Rimozione della cartella dist...
-    rmdir /s /q dist
+if exist pwb (
+    echo Rimozione della cartella pwb...
+    rmdir /s /q pwb
 )
 
 if exist config.py (
     echo Rimozione del file config.py...
     del /q config.py
-)
-
-if exist main.spec (
-    echo Rimozione del file main.spec...
-    del /q main.spec
 )
 
 if exist price_tables.db (
@@ -43,8 +28,9 @@ if exist start.bat (
     del /q start.bat
 )
 
-:: Rimuovi il job schedulato
-schtasks /delete /tn "EseguiScriptPythonOgniGiorno" /f
+:: Rimuovi i jobs schedulato
+schtasks /delete /tn "PWB_update_prices" /f
+schtasks /delete /tn "PWB_send_notify" /f
 
 echo Pulizia completata.
 endlocal

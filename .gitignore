@@ -2,6 +2,6 @@ config.py
 price_tables.db
 /__pycache__
 /.vscode
-/bot
+/pwb
 start.bat
 start.sh

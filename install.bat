@@ -2,7 +2,7 @@
 setlocal enabledelayedexpansion
 
 :: Installo il virtual environment
-set "VENV_NAME=bot"
+set "VENV_NAME=pwb"
 set "VENV_PATH=%PROJECT_DIR%%VENV_NAME%"
 set "VENV_SCRIPTS_PATH=%VENV_PATH%\Scripts"
 
@@ -41,7 +41,8 @@ if exist "%FILE_PATH%" (
 
 :: Imposto il job pianificato
 set "PROJECT_DIR=%~dp0"
-schtasks /create /sc daily /tn "EseguiScriptPythonOgniGiorno" /tr "python \"%PROJECT_DIR%cron_update_prices.py\"" /st 05:00
+schtasks /create /sc daily /tn "PWB_update_prices" /tr "python \"%PROJECT_DIR%cron_update_prices.py\"" /st 05:00
+schtasks /create /sc daily /tn "PWB_send_notify" /tr "python \"%PROJECT_DIR%cron_send_notify.py\"" /st 05:01
 echo Task schedulato correttamente.
 
 :: Installo DB
