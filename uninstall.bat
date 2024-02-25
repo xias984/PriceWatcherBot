@@ -38,5 +38,8 @@ if exist price_tables.db (
     del /q price_tables.db
 )
 
+:: Rimuovi il job schedulato
+schtasks /delete /tn "EseguiScriptPythonOgniGiorno" /f
+
 echo Pulizia completata.
 endlocal

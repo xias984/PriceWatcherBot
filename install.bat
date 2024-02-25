@@ -1,30 +1,6 @@
 @echo off
 setlocal enabledelayedexpansion
 
-:: Installo DB
-set "DATABASE_PATH=price_tables.db"
-set "SQL_FILE_PATH=price_tables.sql"
-
-if exist "%DATABASE_PATH%" (
-    echo Il file del database esiste già.
-) else (
-    echo Creazione del database da %SQL_FILE_PATH%...
-    sqlite3 "%DATABASE_PATH%" < "%SQL_FILE_PATH%"
-    echo Database creato.
-)
-
-:: Configuro le variabili di configurazione
-echo Configurazione di config_sample.py...
-copy config_sample.py config.py
-
-set /p TELEGRAM_TOKEN="Inserisci il token del bot Telegram: "
-set /p AMAZON_AFFILIATE_TAG="Inserisci l'affiliate tag di Amazon: "
-
-powershell -Command "(Get-Content config.py).replace('your_database_name_here', '%DATABASE_PATH%').replace('your_telegram_token_here', '%TELEGRAM_TOKEN%').replace('your_amazon_affiliate_tag_here', '%AMAZON_AFFILIATE_TAG%') | Set-Content config.py"
-
-echo Configurazione completata.
-
-
 :: Installo il virtual environment
 set "VENV_NAME=bot"
 set "VENV_PATH=%PROJECT_DIR%%VENV_NAME%"
@@ -68,26 +44,27 @@ set "PROJECT_DIR=%~dp0"
 schtasks /create /sc daily /tn "EseguiScriptPythonOgniGiorno" /tr "python \"%PROJECT_DIR%cron_update_prices.py\"" /st 05:00
 echo Task schedulato correttamente.
 
-:: Rileva il sistema operativo e installa PyInstaller se su Windows
-for /f "tokens=4-5 delims=[.] " %%i in ('ver') do set VERSION=%%i.%%j
-if "%VERSION%" == "10.0" (
-    echo Sistema operativo Windows rilevato. Installazione di PyInstaller in corso...
-    
-    :: Attiva l'ambiente virtuale
-    call "%VENV_SCRIPTS_PATH%\activate.bat"
-    
-    :: Installa PyInstaller
-    echo Installazione di PyInstaller...
-    "%VENV_SCRIPTS_PATH%\pip.exe" install pyinstaller
-    
-    :: Crea l'eseguibile .exe di main.py
-    echo Creazione dell'eseguibile di main.py...
-    cd "%PROJECT_DIR%"
-    "%VENV_SCRIPTS_PATH%\pyinstaller.exe" --onefile main.py
-    
-    echo Eseguibile creato nella cartella dist.
+:: Installo DB
+set "DATABASE_PATH=price_tables.db"
+set "SQL_FILE_PATH=price_tables.sql"
+
+if exist "%DATABASE_PATH%" (
+    echo Il file del database esiste già.
 ) else (
-    echo Sistema operativo non Windows rilevato. Salto l'installazione di PyInstaller.
+    echo Creazione del database da %SQL_FILE_PATH%...
+    sqlite3 "%DATABASE_PATH%" < "%SQL_FILE_PATH%"
+    echo Database creato.
 )
+
+:: Configuro le variabili di configurazione
+echo Configurazione di config_sample.py...
+copy config_sample.py config.py
+
+set /p TELEGRAM_TOKEN="Inserisci il token del bot Telegram: "
+set /p AMAZON_AFFILIATE_TAG="Inserisci l'affiliate tag di Amazon: "
+
+powershell -Command "(Get-Content config.py).replace('your_database_name_here', '%DATABASE_PATH%').replace('your_telegram_token_here', '%TELEGRAM_TOKEN%').replace('your_amazon_affiliate_tag_here', '%AMAZON_AFFILIATE_TAG%') | Set-Content config.py"
+
+echo Configurazione completata.
 
 endlocal
