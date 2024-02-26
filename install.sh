@@ -35,9 +35,11 @@ fi
 
 # Configura il job cron
 CRON_JOB="0 5 * * * cd $PROJECT_DIR && $VENV_SCRIPTS_PATH/python cron_update_prices.py >> cron.log 2>&1"
+CRON_JOB="1 5 * * * cd $PROJECT_DIR && $VENV_SCRIPTS_PATH/python cron_send_notify.py >> cron.log 2>&1"
 
 # Aggiunge il job cron se non esiste
 (crontab -l 2>/dev/null | grep -Fv cron_update_prices; echo "$CRON_JOB") | crontab -
+(crontab -l 2>/dev/null | grep -Fv cron_send_notify; echo "$CRON_JOB") | crontab -
 
 echo "Job cron per l'aggiornamento dei prezzi configurato con successo."
 
