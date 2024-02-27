@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Definisci il nome e il percorso dell'ambiente virtuale
-VENV_NAME="bot"
+VENV_NAME="pwb"
 PROJECT_DIR=$(pwd)
 VENV_PATH="$PROJECT_DIR/$VENV_NAME"
 VENV_SCRIPTS_PATH="$VENV_PATH/bin"

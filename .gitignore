@@ -5,3 +5,4 @@ price_tables.db
 /pwb
 start.bat
 start.sh
+cron.log

@@ -28,6 +28,11 @@ if exist start.bat (
     del /q start.bat
 )
 
+if exist cron.log (
+    echo Rimozione del file cron.log...
+    del /q cron.log
+)
+
 :: Rimuovi i jobs schedulato
 schtasks /delete /tn "PWB_update_prices" /f
 schtasks /delete /tn "PWB_send_notify" /f
