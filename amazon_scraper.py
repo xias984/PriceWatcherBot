@@ -17,7 +17,7 @@ class AmazonScraper:
         return amazonify(url, self.affiliate)
 
     def fetch_amazon_data(self, url):# -> list[Any | str] | None:
-        url = self.amz_link_building(url)
+        urlBuilded = self.amz_link_building(url)
         headers = {'User-Agent': random.choice(self.userAgents)}
         try:
             response = requests.get(url, headers=headers)
@@ -26,7 +26,7 @@ class AmazonScraper:
             category = self.get_category(soup)
             asin = self.get_asin(soup)
             productName = self.get_product_name(soup)
-            return [price, productName, asin, category, url]
+            return [price, productName, asin, category, urlBuilded]
         except Exception as e:
             print(f"Errore durante il fetch del prezzo: {e}")
             return None
@@ -35,21 +35,23 @@ class AmazonScraper:
         list_input_id = ['priceValue', 'twister-plus-price-data-price']
         for input_id in list_input_id:
             price = soup.find('input', id=input_id)
-            if price:
-                return price['value']
-        # Se non trova il prezzo nei campi input, cerca in altre possibili posizioni
+            if price and 'value' in price.attrs:
+                return price['value'].strip()
         price_span = soup.find('span', id='priceblock_ourprice')
         if price_span:
             return price_span.text.strip()
         return 'Non disponibile'
 
+
     def get_category(self, soup):
-        try:
-            first_span = soup.find('ul', class_="a-unordered-list a-horizontal a-size-small").find('li').find('span')
-            category = first_span.find('a').text.strip()
-            return category
-        except TypeError:
-            return 'Non trovata'
+        first_span = soup.find('ul', class_="a-unordered-list a-horizontal a-size-small")
+        if first_span:
+            category_link = first_span.find('li').find('span').find('a')
+            if category_link:
+                category = category_link.text.strip()
+                return category
+        return 'Non trovata'
+
 
     def get_asin(self, soup):
         asin = soup.find('input', {'id': 'ASIN'})
