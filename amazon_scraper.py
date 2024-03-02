@@ -1,23 +1,16 @@
 import requests
 from bs4 import BeautifulSoup
 import random
-from amazonify import amazonify
-from config import AMAZON_AFFILIATE_TAG
 
 class AmazonScraper:
-    def __init__(self, affiliate_tag=AMAZON_AFFILIATE_TAG):
-        self.affiliate = affiliate_tag
+    def __init__(self):
         self.userAgents = [
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36',
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0',
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0'
         ]
 
-    def amz_link_building(self, url):
-        return amazonify(url, self.affiliate)
-
-    def fetch_amazon_data(self, url):# -> list[Any | str] | None:
-        urlBuilded = self.amz_link_building(url)
+    def fetch_amazon_data(self, url):
         headers = {'User-Agent': random.choice(self.userAgents)}
         try:
             response = requests.get(url, headers=headers)
