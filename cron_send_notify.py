@@ -15,7 +15,7 @@ def main():
 
             if new_price < old_price:
                 word = 'diminuito'
-            else:
+            elif new_price > old_price:
                 word = 'aumentato'
 
             message = f"Il prezzo di {data[0]} è {word} da {old_price} a {new_price}!"

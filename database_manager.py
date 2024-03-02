@@ -134,6 +134,9 @@ class DatabaseManager:
                 INSERT INTO variation_price (idprodotto, oldprice, newprice, updated_at) 
                 VALUES (?, ?, ?, ?)    
             """, (idprod, oldprice, newprice, now))
+            self.c.execute("""
+                UPDATE products SET price = ? WHERE id = ?
+            """, (newprice, idprod))
             return self.conn.commit()
         except sqlite3.IntegrityError:
             return "Errore: questa associazione prodotto-utente esiste già. Digita /list per visualizzare tutti i prodotti che hai inserito nel nostro sistema."
