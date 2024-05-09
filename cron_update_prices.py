@@ -1,11 +1,11 @@
 from database_manager import DatabaseManager
 from amazon_scraper import AmazonScraper
-from config import PATH_DB, AMAZON_AFFILIATE_TAG
+import os
 import time
 
 def main():
     AS = AmazonScraper()
-    DM = DatabaseManager(PATH_DB)
+    DM = DatabaseManager(os.getenv('DB_HOST'),os.getenv('DB_USER'),os.getenv('DB_PASS'),os.getenv('DB_NAME'))
     with DM as db_manager:
         results = db_manager.get_price_for_scraping()
         for data in results:

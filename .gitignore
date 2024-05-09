@@ -1,8 +1,6 @@
-config.py
-price_tables.db
 /__pycache__
 /.vscode
 /pwb
-start.bat
-start.sh
-cron.log
+/old
+supervisord.pid
+supervisord.log

@@ -1,3 +1,0 @@
-TELEGRAM_BOT_TOKEN='your_telegram_token_here'
-AMAZON_AFFILIATE_TAG='your_amazon_affiliate_tag_here'
-PATH_DB='your_database_name_here'
