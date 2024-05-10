@@ -2,7 +2,7 @@ import mysql.connector
 from mysql.connector import Error
 from datetime import datetime
 from amazonify import amazonify
-import os
+from config import AMAZON_AFFILIATE_TAG
 
 class DatabaseManager:
     def __init__(self, host, user, password, database):
@@ -47,7 +47,7 @@ class DatabaseManager:
             else:
                 self.c.execute(
                     "INSERT INTO products (product_name, created_at, price, url, asin, category) VALUES (%s, %s, %s, %s, %s, %s)",
-                    (amz_data[1], now, amz_data[0], amazonify(amz_data[4], os.getenv('AMAZON_AFFILIATE_TAG')), amz_data[2], amz_data[3])
+                    (amz_data[1], now, amz_data[0], amazonify(amz_data[4], AMAZON_AFFILIATE_TAG), amz_data[2], amz_data[3])
                 )
                 product_id = self.c.lastrowid
 

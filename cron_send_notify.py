@@ -1,10 +1,10 @@
 import requests
 from database_manager import DatabaseManager
-import os
+from config import DB_HOST, DB_USER, DB_PASS, DB_NAME, TELEGRAM_BOT_TOKEN
 import time
 
 def main():
-    DM = DatabaseManager(os.getenv('DB_HOST'),os.getenv('DB_USER'),os.getenv('DB_PASS'),os.getenv('DB_NAME'))
+    DM = DatabaseManager(DB_HOST, DB_USER, DB_PASS, DB_NAME)
     with DM as db_manager:
         results = db_manager.get_recent_price_changes()
         

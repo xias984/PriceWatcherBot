@@ -2,13 +2,13 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from amazon_scraper import AmazonScraper
 from database_manager import DatabaseManager
-import os
+from config import DB_HOST, DB_USER, DB_PASS, DB_NAME
 
 class TelegramBot:
     def __init__(self, token):
         self.application = Application.builder().token(token).build()
         self.amazon_scraper = AmazonScraper()
-        self.db_manager = DatabaseManager(os.getenv('DB_HOST'),os.getenv('DB_USER'),os.getenv('DB_PASS'),os.getenv('DB_NAME'))
+        self.db_manager = DatabaseManager(DB_HOST, DB_USER, DB_PASS, DB_NAME)
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         welcome_message = """

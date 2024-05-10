@@ -4,3 +4,4 @@
 /old
 supervisord.pid
 supervisord.log
+cron.log
