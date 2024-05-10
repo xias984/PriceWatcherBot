@@ -1,6 +1,7 @@
 import requests
 from database_manager import DatabaseManager
-from config import DB_HOST, DB_USER, DB_PASS, DB_NAME, TELEGRAM_BOT_TOKEN
+from config import DB_HOST, DB_USER, DB_PASS, DB_NAME, TELEGRAM_BOT_TOKEN, logger
+from urllib.parse import urlencode
 import time
 
 def main():
@@ -19,12 +20,27 @@ def main():
                 word = 'aumentato'
 
             message = f"Il prezzo di {data[0]} è {word} da {old_price} a {new_price}!"
-            send_telegram_notification(user_id, message)
+            params = {
+                'chat_id': user_id,
+                'text': message
+            }
+            send_telegram_notification(params)
             time.sleep(60)
 
-def send_telegram_notification(user_id, message):
-    send_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage?chat_id={user_id}&text={message}"
-    requests.get(send_url)
+def send_telegram_notification(params):
+    base_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
+    send_url = f"{base_url}?{urlencode(params)}"
+    try:
+        response = requests.get(send_url, timeout=10)
+        response.raise_for_status()
+    except requests.exceptions.HTTPError as errh:
+        logger.error(f"Errore HTTP: {errh}")
+    except requests.exceptions.ConnectionError as errc:
+        logger.error(f"Errore di connessione: {errc}")
+    except requests.exceptions.Timeout as errt:
+        logger.error(f"Timeout: {errt}")
+    except requests.exceptions.RequestException as err:
+        logger.error(f"Errore nella richiesta: {err}")
 
 if __name__ == '__main__':
     main()

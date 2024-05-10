@@ -2,7 +2,7 @@ import mysql.connector
 from mysql.connector import Error
 from datetime import datetime
 from amazonify import amazonify
-from config import AMAZON_AFFILIATE_TAG
+from config import AMAZON_AFFILIATE_TAG, logger
 
 class DatabaseManager:
     def __init__(self, host, user, password, database):
@@ -13,6 +13,7 @@ class DatabaseManager:
         self.conn = None
         self.c = None
         self.connect()
+        self.logger = logger
 
     def connect(self):
         try:
@@ -103,7 +104,7 @@ class DatabaseManager:
             """, (userid,))
             return self.c.fetchall()
         except Error as e:
-            print(f"Errore durante l'accesso al database: {e}")
+            self.logger.error(f"Errore durante l'accesso al database: {e}")
             return []
 
     def delete_by_asin(self, asin, user):
@@ -124,7 +125,7 @@ class DatabaseManager:
             else:
                 return "Non è stato trovato un ASIN corrispondente"
         except Error as e:
-            print(f"Errore durante l'accesso al database: {e}")
+            self.logger.error(f"Errore durante l'accesso al database: {e}")
             return []
 
     def get_price_for_scraping(self):
@@ -132,23 +133,23 @@ class DatabaseManager:
             self.c.execute("SELECT id, price, url FROM products")
             return self.c.fetchall()
         except Error as e:
-            print(f"Errore durante l'accesso al database: {e}")
+            self.logger.error(f"Errore durante l'accesso al database: {e}")
             return []
 
     def get_recent_price_changes(self):
-        now = datetime.now().strftime('%Y-%m-%d')
+        today = datetime.now().strftime('%Y-%m-%d')
         try:
             self.c.execute("""
-                SELECT P.product_name, P.url, U.idtelegram, VP.newprice, VP.oldprice 
+                SELECT P.product_name, P.url, U.idtelegram, VP.newprice, VP.oldprice, P.id
                 FROM variation_price AS VP 
                 LEFT JOIN products AS P ON VP.idprodotto = P.id 
                 LEFT JOIN product_user AS PU ON P.id = PU.product_id 
                 LEFT JOIN users AS U ON PU.user_id = U.id
                 WHERE VP.updated_at = %s
-            """, (now,))
+            """, (today,))
             return self.c.fetchall()
         except Error as e:
-            print(f"Errore durante l'accesso al database: {e}")
+            self.logger.error(f"Errore durante l'accesso al database: {e}")
             return []
 
     def update_variation_price(self, idprod, oldprice, newprice):
@@ -163,4 +164,4 @@ class DatabaseManager:
             """, (newprice, idprod))
             self.conn.commit()
         except Error as e:
-            print(f"Errore durante l'accesso al database: {e}")
+            self.logger.error(f"Errore durante l'accesso al database: {e}")

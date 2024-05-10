@@ -2,13 +2,14 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 from amazon_scraper import AmazonScraper
 from database_manager import DatabaseManager
-from config import DB_HOST, DB_USER, DB_PASS, DB_NAME
+from config import DB_HOST, DB_USER, DB_PASS, DB_NAME, logger
 
 class TelegramBot:
     def __init__(self, token):
         self.application = Application.builder().token(token).build()
         self.amazon_scraper = AmazonScraper()
         self.db_manager = DatabaseManager(DB_HOST, DB_USER, DB_PASS, DB_NAME)
+        self.logger = logger
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         welcome_message = """
@@ -30,12 +31,16 @@ class TelegramBot:
                 params = self.amazon_scraper.fetch_amazon_data(url)
                 if params and params[0]:
                     message_response = self.db_manager.insert_into_db(userid, username, params)
+                    self.logger.info(f"Associazione utente {userid} con prodotto (ASIN) {params[2]} creata")
                     await context.bot.send_message(chat_id=update.effective_chat.id, text=message_response)
                 else:
+                    self.logger.info(f"Informazioni prodotto non trovate: {url}")
                     await context.bot.send_message(chat_id=update.effective_chat.id, text="Non sono riuscito a trovare il prezzo.")
             else:
+                self.logger.info(f"Url non valido: {url}")
                 await context.bot.send_message(chat_id=update.effective_chat.id, text="URL non supportato per lo scraping del prezzo.")
         else:
+            self.logger.info(f"Url non valido: {url}")
             await context.bot.send_message(chat_id=update.effective_chat.id, text="Per favore, inserisci un URL dopo il comando /url")
 
     async def products_list(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -65,6 +70,7 @@ class TelegramBot:
         
         except Exception as e:
             message_error = f"Errore durante l'accesso al database: {e}"
+            self.logger.error(message_error)
             await context.bot.send_message(chat_id=update.effective_chat.id, text=message_error)
 
     async def remove_product(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -84,4 +90,7 @@ class TelegramBot:
         self.application.add_handler(CommandHandler('url', self.open_url))
         self.application.add_handler(CommandHandler('list', self.products_list))
         self.application.add_handler(CommandHandler('delete', self.remove_product))
-        self.application.run_polling()
+        self.application.run_polling(
+            poll_interval=10,
+            timeout=300
+        )
