@@ -25,7 +25,7 @@ class DatabaseManager:
             )
             self.c = self.conn.cursor(buffered=True)
         except Error as e:
-            print(f"Errore durante la connessione a MySQL: {e}")
+            logger.error(f"Errore durante la connessione a MySQL: {e}")
 
     def __enter__(self):
         return self

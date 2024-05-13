@@ -1,2 +1,4 @@
 0 5 * * * python cron_update_prices.py
 1 5 * * * python cron_send_notify.py
+0 0 * * * > /var/log/supervisor/bot.log
+0 0 * * * > /var/log/supervisor/bot_err.log

@@ -1,6 +1,7 @@
 import requests
 from bs4 import BeautifulSoup
 import random
+from config import logger
 
 class AmazonScraper:
     def __init__(self):
@@ -9,6 +10,7 @@ class AmazonScraper:
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:122.0) Gecko/20100101 Firefox/122.0',
             'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36 Edg/122.0.0.0'
         ]
+        self.logger = logger
 
     def fetch_amazon_data(self, url):
         headers = {'User-Agent': random.choice(self.userAgents)}
@@ -21,7 +23,7 @@ class AmazonScraper:
             productName = self.get_product_name(soup)
             return [price, productName, asin, category, url]
         except Exception as e:
-            print(f"Errore durante il fetch del prezzo: {e}")
+            self.logger.error(f"Errore durante il fetch del prezzo: {e}")
             return None
 
     def get_price(self, soup):

@@ -1,5 +1,5 @@
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
 from amazon_scraper import AmazonScraper
 from database_manager import DatabaseManager
 from config import DB_HOST, DB_USER, DB_PASS, DB_NAME, logger
@@ -54,16 +54,18 @@ class TelegramBot:
                 for record in results:
                     product_asin, product_name, product_price, product_url = record[4], record[1], record[2], record[3]
                     message = f"<b>ASIN</b>: {product_asin} \n<b>NOME</b>: <a href='{product_url}'>{product_name}</a> \n<b>PREZZO</b>: {product_price} €"
+                    
+                    keyboard = [
+                        [InlineKeyboardButton("Cancella", callback_data=f"delete_{product_asin}")]
+                    ]
+                    reply_markup = InlineKeyboardMarkup(keyboard)
                     await context.bot.send_message(
                         chat_id=update.effective_chat.id,
                         text=message,
                         parse_mode='HTML',
-                        disable_web_page_preview=True
+                        disable_web_page_preview=True,
+                        reply_markup=reply_markup
                     )
-                await context.bot.send_message(
-                    chat_id=update.effective_chat.id,
-                    text='Se necessiti che un prodotto non venga più monitorato, eliminalo con /delete ASIN (es. /delete B0BX3GGV1T)'
-                )
             else:
                 message = "Non hai ancora inserito nessun prodotto da Amazon. Inserisci il prodotto che t'interessa con /url"
                 await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
@@ -73,23 +75,22 @@ class TelegramBot:
             self.logger.error(message_error)
             await context.bot.send_message(chat_id=update.effective_chat.id, text=message_error)
 
-    async def remove_product(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        user = update.effective_user
-        userid = str(user.id)
-        asin = context.args[0]
-
-        if asin:
-            message_response = self.db_manager.delete_by_asin(context.args[0], userid)
-        else:
-            message_response = 'L\'ASIN fornito non è valida o mancante'
+    async def button_callback_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        query = update.callback_query
+        await query.answer()
         
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=message_response)
+        data = query.data
+        asin = data.split("_")[1]
+        if data.startswith("delete_"):
+            response = self.db_manager.delete_by_asin(asin, query.message.chat.id)
+            await query.edit_message_text(text=response)
 
     def run(self):
         self.application.add_handler(CommandHandler('start', self.start))
         self.application.add_handler(CommandHandler('url', self.open_url))
         self.application.add_handler(CommandHandler('list', self.products_list))
         self.application.add_handler(CommandHandler('delete', self.remove_product))
+        self.application.add_handler(CallbackQueryHandler(self.button_callback_handler))
         self.application.run_polling(
             poll_interval=10,
             timeout=300
