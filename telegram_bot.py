@@ -12,13 +12,47 @@ class TelegramBot:
         self.logger = logger
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        welcome_message = """
-            Ciao! Il mio compito è quello di avvisarti se un prezzo di un prodotto fornito da Amazon si abbassa o si alza nei giorni a seguire. Ecco cosa puoi fare:
-            - Inserisci il link del tuo prodotto preferito subito dopo aver digitato /url. Ad esempio: /url <link>
-            - Digita /list per visualizzare i prodotti che stiamo monitorando per te.
-            Ti manderò sicuramente una notifica qui per qualsiasi aggiornamento. Cominciamo!
-            """
-        await context.bot.send_message(chat_id=update.effective_chat.id, text=welcome_message)
+        args = context.args
+        if args:
+            self.logger.info(args)
+            pid = args[0].split("_")[0]
+            uid = args[0].split("_")[1]
+
+            username = self.db_manager.get_username_from_idtelegram(uid)[0][0]
+            if username:
+                text_user = f"Questo articolo è stato condiviso per te da <i>{username}</i>."
+            else:
+                text_user = f"Un prodotto Amazon è stato condiviso per te."
+
+            if not self.db_manager.check_productuser_from_id(pid, uid):
+                keyboard = [
+                            [InlineKeyboardButton("Aggiungi", callback_data=f"add_{pid}")]
+                        ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                text_start = f"Premi su <b>AGGIUNGI</b> per aggiungerlo alla tua lista dei prodotti da monitorare. Ti avviserò ogni volta che il prezzo salirà o scenderà."
+            else:
+                reply_markup = ''
+                text_start = ''
+
+            product_message = self.info_product(pid)
+            await update.message.reply_text(
+                text=product_message,
+                parse_mode='HTML',
+                disable_web_page_preview=False,
+                reply_markup=reply_markup
+            )
+            
+            await update.message.reply_text(
+                text=f"{text_user} {text_start}",
+                parse_mode='HTML'
+            )
+        else:
+            welcome_message = f"Ciao! Il mio compito è quello di avvisarti se un prezzo di un prodotto fornito da Amazon si abbassa\
+                             o si alza nei giorni a seguire. Ecco cosa puoi fare:\
+                            - Inserisci il link del tuo prodotto preferito subito dopo aver digitato /url. Ad esempio: /url <link>\
+                            - Digita /list per visualizzare i prodotti che stiamo monitorando per te.\
+                            Ti manderò sicuramente una notifica qui per qualsiasi aggiornamento. Cominciamo!"
+            await context.bot.send_message(chat_id=update.effective_chat.id, text=welcome_message)
 
     async def open_url(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = update.effective_user
@@ -52,11 +86,13 @@ class TelegramBot:
             
             if results:
                 for record in results:
-                    product_asin, product_name, product_price, product_url = record[4], record[1], record[2], record[3]
-                    message = f"<b>ASIN</b>: {product_asin} \n<b>NOME</b>: <a href='{product_url}'>{product_name}</a> \n<b>PREZZO</b>: {product_price} €"
+                    pid, product_name, product_price, product_url = record[0], record[1], record[2], record[3]
+                    message = f"<a href='{product_url}'>{product_name}</a> - {product_price} €"
                     
                     keyboard = [
-                        [InlineKeyboardButton("Cancella", callback_data=f"delete_{product_asin}")]
+                        [InlineKeyboardButton("Cancella", callback_data=f"delete_{pid}"),
+                         InlineKeyboardButton("Info", callback_data=f"info_{pid}"),
+                         InlineKeyboardButton("Condividi", callback_data=f"share_{pid}")]
                     ]
                     reply_markup = InlineKeyboardMarkup(keyboard)
                     await context.bot.send_message(
@@ -76,20 +112,48 @@ class TelegramBot:
             await context.bot.send_message(chat_id=update.effective_chat.id, text=message_error)
 
     async def button_callback_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        from urllib import parse
         query = update.callback_query
         await query.answer()
         
         data = query.data
-        asin = data.split("_")[1]
+        pid = data.split("_")[1]
         if data.startswith("delete_"):
-            response = self.db_manager.delete_by_asin(asin, query.message.chat.id)
+            response = self.db_manager.delete_by_productid(pid, query.message.chat.id)
             await query.edit_message_text(text=response)
+        elif data.startswith("info_"):
+            message = self.info_product(pid)
+            await context.bot.send_message(
+                        chat_id=update.effective_chat.id,
+                        text=message,
+                        parse_mode='HTML',
+                        disable_web_page_preview=False
+                    )
+        elif data.startswith("share_"):
+            params = f"{pid}_{update.effective_chat.id}"
+            encoded_params = parse.quote_plus(params)
+            url = f"https://t.me/bestpriceamzbot?start={encoded_params}"
+            self.logger.info(f"Generated URL for sharing: {url}")
+            share_message = f"Condividi questo prodotto con gli altri! Clicca qui: {url}"
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=share_message,
+                parse_mode='HTML'
+            )
+        elif data.startswith("add_"):
+            self.logger.info(f"data: {data}")
+
+    def info_product(self, pid):
+        result = self.db_manager.get_info_data(pid)
+        if result:
+            return f"<b>NOME</b>: <a href='{result[0][3]}'>{result[0][1]}</a> \n<b>PREZZO</b>: {result[0][2]} €\n<b>ASIN</b>: {result[0][4]} \n<b>CATEGORIA</b>: {result[0][5]}"
+        else:
+            return f"Prodotto non esistente"
 
     def run(self):
         self.application.add_handler(CommandHandler('start', self.start))
         self.application.add_handler(CommandHandler('url', self.open_url))
         self.application.add_handler(CommandHandler('list', self.products_list))
-        self.application.add_handler(CommandHandler('delete', self.remove_product))
         self.application.add_handler(CallbackQueryHandler(self.button_callback_handler))
         self.application.run_polling(
             poll_interval=10,

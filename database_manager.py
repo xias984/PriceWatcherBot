@@ -106,24 +106,46 @@ class DatabaseManager:
         except Error as e:
             self.logger.error(f"Errore durante l'accesso al database: {e}")
             return []
+        
+    def get_username_from_idtelegram(self, uid):
+        try:
+            self.c.execute("SELECT nome FROM users WHERE idtelegram = %s", (uid,))
+            return self.c.fetchall()
+        except Error as e:
+            self.logger.error(f"Errore durante l'accesso al database: {e}")
+            return []
 
-    def delete_by_asin(self, asin, user):
+    def delete_by_productid(self, pid, user):
+        try:
+            result_id = self.check_productuser_from_id(pid, user)
+            if result_id and result_id[0]:
+                self.c.execute("DELETE FROM product_user WHERE id = %s", (result_id[0],))
+                self.conn.commit()
+
+                return "Prodotto eliminato correttamente."
+            else:
+                return "Non è stato trovato un ASIN corrispondente"
+        except Error as e:
+            self.logger.error(f"Errore durante l'accesso al database: {e}")
+            return []
+    
+    def get_info_data(self, pid):
+        try:
+            self.c.execute("SELECT * FROM products WHERE id = %s", (pid,))
+            return self.c.fetchall()
+        except Error as e:
+            self.logger.error(f"Errore durante l'accesso al database: {e}")
+            return []
+        
+    def check_productuser_from_id(self, pid, uid):
         try:
             self.c.execute("""
                 SELECT PU.id FROM products AS P
                 LEFT JOIN product_user AS PU ON P.id = PU.product_id
                 LEFT JOIN users AS U ON PU.user_id = U.id
-                WHERE P.asin = %s AND U.idtelegram = %s
-            """, (asin, user))
-            result_id = self.c.fetchone()
-
-            if result_id and result_id[0]:
-                self.c.execute("DELETE FROM product_user WHERE id = %s", (result_id[0],))
-                self.conn.commit()
-
-                return "Prodotto eliminato correttamente, continua ad aggiungere prodotti da monitorare con /url. Digita /help per maggiori informazioni."
-            else:
-                return "Non è stato trovato un ASIN corrispondente"
+                WHERE P.id = %s AND U.idtelegram = %s
+            """, (pid, uid))
+            return self.c.fetchone()
         except Error as e:
             self.logger.error(f"Errore durante l'accesso al database: {e}")
             return []

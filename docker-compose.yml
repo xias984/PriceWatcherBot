@@ -1,0 +1,18 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: PriceWatcherBot
+    environment:
+      - AMAZON_AFFILIATE_TAG=${AMAZON_AFFILIATE_TAG}
+      - DB_HOST=${DB_HOST}
+      - DB_NAME=${DB_NAME}
+      - DB_PASS=${DB_PASS}
+      - DB_USER=${DB_USER}
+      - TELEGRAM_BOT_TOKEN=${TELEGRAM_BOT_TOKEN}
+    volumes:
+      - ${PATH_LOG}:/var/log/supervisor
+      - ${PATH_PWB}:/app
+    networks:
+      - raspnetwork

@@ -10,6 +10,7 @@ def main():
         results = db_manager.get_recent_price_changes()
         
         for data in results:
+            logger.info(data[2])
             new_price = data[3]
             old_price = data[4]
             user_id = data[2]
@@ -24,8 +25,8 @@ def main():
                 'chat_id': user_id,
                 'text': message
             }
-            send_telegram_notification(params)
-            time.sleep(60)
+            if params[0] and params[1]:
+                send_telegram_notification(params)
 
 def send_telegram_notification(params):
     base_url = f"https://api.telegram.org/bot{TELEGRAM_BOT_TOKEN}/sendMessage"
