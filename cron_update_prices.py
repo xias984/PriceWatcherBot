@@ -9,7 +9,6 @@ def main():
     with DM as db_manager:
         results = db_manager.get_price_for_scraping()
         for data in results:
-            logger_cron.info(f"Analizzo id prodotto {data[0]}")
             AmazonPrice = AS.fetch_amazon_data(data[2])[0]
             if float(AmazonPrice) and (float(AmazonPrice) != float(data[1])):
                 DM.update_variation_price(data[0], data[1], AmazonPrice)

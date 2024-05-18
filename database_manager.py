@@ -60,6 +60,7 @@ class DatabaseManager:
                 "INSERT INTO products (product_name, created_at, price, url, asin, category) VALUES (%s, %s, %s, %s, %s, %s)",
                 (amz_data[1], now, amz_data[0], amazonify(amz_data[4], AMAZON_AFFILIATE_TAG), amz_data[2], amz_data[3])
             )
+            self.conn.commit()
             return self.c.lastrowid
 
     def get_or_insert_user(self, userid, username, now):
@@ -73,6 +74,7 @@ class DatabaseManager:
                 "INSERT INTO users (nome, idtelegram, created_at) VALUES (%s, %s, %s)",
                 (username, userid, now)
             )
+            self.conn.commit()
             return self.c.lastrowid
 
     def add_product_to_user(self, user_id, product_id, now):
@@ -88,6 +90,7 @@ class DatabaseManager:
                     "INSERT INTO product_user (user_id, product_id, created_at) VALUES (%s, %s, %s)",
                     (user_id, product_id, now)
                 )
+                self.conn.commit()
                 return "Prodotto aggiunto correttamente, ora ti terremo aggiornato qualora il prezzo variasse."
             except Error as e:
                 return f"Errore: {e}"
@@ -184,6 +187,7 @@ class DatabaseManager:
                 self.c.execute("""
                     UPDATE products SET price = %s WHERE id = %s
                 """, (newprice, idprod))
+                self.conn.commit()
         except Error as e:
             self.logger.error(f"Errore durante l'accesso al database: {e}")
 
