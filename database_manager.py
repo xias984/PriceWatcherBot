@@ -124,7 +124,7 @@ class DatabaseManager:
 
                 return "Prodotto eliminato correttamente."
             else:
-                return "Non è stato trovato un ASIN corrispondente"
+                return "Il prodotto non esiste più."
         except Error as e:
             self.logger.error(f"Errore durante l'accesso al database: {e}")
             return []
@@ -187,3 +187,46 @@ class DatabaseManager:
             self.conn.commit()
         except Error as e:
             self.logger.error(f"Errore durante l'accesso al database: {e}")
+
+    def insert_new_productuser(self, params):
+        now = datetime.now().strftime('%Y-%m-%d')
+        try:
+            # Cerca l'utente per idtelegram
+            self.c.execute("SELECT id FROM users WHERE idtelegram = %s", (params['telegram_id'],))
+            result_user = self.c.fetchone()
+
+            if result_user:
+                user_id = result_user[0]
+            else:
+                self.c.execute(
+                    "INSERT INTO users (nome, idtelegram, created_at) VALUES (%s, %s, %s)",
+                    (params['username_dest'], params['telegram_id'], now)
+                )
+                user_id = self.c.lastrowid
+
+            self.conn.commit()
+
+            # Verifica se l'associazione utente-prodotto esiste già
+            self.c.execute(
+                "SELECT product_id FROM product_user WHERE product_id = %s AND user_id = %s",
+                (params['product_id'], user_id)
+            )
+            n_prod = self.c.fetchall()
+
+            if len(n_prod) == 0:
+                try:
+                    self.c.execute(
+                        "INSERT INTO product_user (user_id, product_id, created_at) VALUES (%s, %s, %s)",
+                        (user_id, params['product_id'], now)
+                    )
+                    self.conn.commit()
+                    message_response = "Prodotto aggiunto correttamente, ora ti terremo aggiornato qualora il prezzo variasse."
+                except Error as e:
+                    message_response = f"Errore: {e}"
+            else:
+                message_response = 'Prodotto già presente nella tua lista dei prodotti che stai monitorando.'
+
+        except Error as e:
+            message_response = f"Errore durante l'accesso al database: {e}"
+
+        return message_response

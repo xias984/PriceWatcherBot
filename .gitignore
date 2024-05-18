@@ -1,7 +1,6 @@
 /__pycache__
 /.vscode
-/old
 supervisord.pid
 supervisord.log
-cron.log
+/logs
 .env

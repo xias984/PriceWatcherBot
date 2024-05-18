@@ -13,8 +13,8 @@ class TelegramBot:
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         args = context.args
+        uid_dest = update.message.chat.id
         if args:
-            self.logger.info(args)
             pid = args[0].split("_")[0]
             uid = args[0].split("_")[1]
 
@@ -24,7 +24,7 @@ class TelegramBot:
             else:
                 text_user = f"Un prodotto Amazon è stato condiviso per te."
 
-            if not self.db_manager.check_productuser_from_id(pid, uid):
+            if not self.db_manager.check_productuser_from_id(pid, uid_dest):
                 keyboard = [
                             [InlineKeyboardButton("Aggiungi", callback_data=f"add_{pid}")]
                         ]
@@ -32,7 +32,7 @@ class TelegramBot:
                 text_start = f"Premi su <b>AGGIUNGI</b> per aggiungerlo alla tua lista dei prodotti da monitorare. Ti avviserò ogni volta che il prezzo salirà o scenderà."
             else:
                 reply_markup = ''
-                text_start = ''
+                text_start = 'Articolo già presente nella tua lista.'
 
             product_message = self.info_product(pid)
             await update.message.reply_text(
@@ -47,18 +47,13 @@ class TelegramBot:
                 parse_mode='HTML'
             )
         else:
-            welcome_message = f"Ciao! Il mio compito è quello di avvisarti se un prezzo di un prodotto fornito da Amazon si abbassa\
-                             o si alza nei giorni a seguire. Ecco cosa puoi fare:\
-                            - Inserisci il link del tuo prodotto preferito subito dopo aver digitato /url. Ad esempio: /url <link>\
-                            - Digita /list per visualizzare i prodotti che stiamo monitorando per te.\
-                            Ti manderò sicuramente una notifica qui per qualsiasi aggiornamento. Cominciamo!"
+            welcome_message = f"Ciao! Il mio compito è quello di avvisarti se un prezzo di un prodotto fornito da Amazon si abbassa o si alza nei giorni a seguire."
             await context.bot.send_message(chat_id=update.effective_chat.id, text=welcome_message)
 
     async def open_url(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = update.effective_user
         userid = str(user.id)
-        username = str(user.username) if user.username else "User senza username"
-
+        username = self.user_identity(user)
         if context.args:
             url = context.args[0]
             if "amazon." in url or "amzn." in url:
@@ -141,7 +136,21 @@ class TelegramBot:
                 parse_mode='HTML'
             )
         elif data.startswith("add_"):
-            self.logger.info(f"data: {data}")
+            uid_dest = query.message.chat.id
+            username_dest = self.user_identity(query.message.chat)
+            product_id = data.split("_")[1]
+            params = {
+                "telegram_id": uid_dest,
+                "product_id": int(product_id),
+                "username_dest": username_dest
+            }
+
+            added_message = self.db_manager.insert_new_productuser(params)
+            await context.bot.send_message(
+                chat_id=uid_dest,
+                text=added_message
+            )
+            self.logger.info(f"Utente con id telegram {params['telegram_id']} ha aggiunto prodotto con id {params['product_id']}")
 
     def info_product(self, pid):
         result = self.db_manager.get_info_data(pid)
@@ -149,6 +158,18 @@ class TelegramBot:
             return f"<b>NOME</b>: <a href='{result[0][3]}'>{result[0][1]}</a> \n<b>PREZZO</b>: {result[0][2]} €\n<b>ASIN</b>: {result[0][4]} \n<b>CATEGORIA</b>: {result[0][5]}"
         else:
             return f"Prodotto non esistente"
+        
+    def user_identity(self, user):
+        if user.username:
+            return str(user.username)
+        elif user.first_name and user.last_name:
+            return f"{user.first_name} {user.last_name}"
+        elif user.first_name:
+            return str(user.first_name)
+        elif user.last_name:
+            return str(user.last_name)
+        else:
+            return "User senza nome"
 
     def run(self):
         self.application.add_handler(CommandHandler('start', self.start))
