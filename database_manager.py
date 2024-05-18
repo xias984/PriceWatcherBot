@@ -25,7 +25,7 @@ class DatabaseManager:
             )
             self.c = self.conn.cursor(buffered=True)
         except Error as e:
-            logger.error(f"Errore durante la connessione a MySQL: {e}")
+            self.logger.error(f"Errore durante la connessione a MySQL: {e}")
 
     def __enter__(self):
         return self
@@ -39,60 +39,60 @@ class DatabaseManager:
         message_response = ""
 
         try:
-            # Cerca il prodotto per ASIN o nome prodotto
-            self.c.execute("SELECT id FROM products WHERE asin = %s OR product_name = %s", (amz_data[3], amz_data[1]))
-            result_product = self.c.fetchone()
-
-            if result_product:
-                product_id = result_product[0]
-            else:
-                self.c.execute(
-                    "INSERT INTO products (product_name, created_at, price, url, asin, category) VALUES (%s, %s, %s, %s, %s, %s)",
-                    (amz_data[1], now, amz_data[0], amazonify(amz_data[4], AMAZON_AFFILIATE_TAG), amz_data[2], amz_data[3])
-                )
-                product_id = self.c.lastrowid
-
-            self.conn.commit()
-
-            # Cerca l'utente per idtelegram
-            self.c.execute("SELECT id FROM users WHERE idtelegram = %s", (userid,))
-            result_user = self.c.fetchone()
-
-            if result_user:
-                user_id = result_user[0]
-            else:
-                self.c.execute(
-                    "INSERT INTO users (nome, idtelegram, created_at) VALUES (%s, %s, %s)",
-                    (username, userid, now)
-                )
-                user_id = self.c.lastrowid
-
-            self.conn.commit()
-
-            # Verifica se l'associazione utente-prodotto esiste già
-            self.c.execute(
-                "SELECT product_id FROM product_user WHERE product_id = %s AND user_id = %s",
-                (product_id, user_id)
-            )
-            n_prod = self.c.fetchall()
-
-            if len(n_prod) == 0:
-                try:
-                    self.c.execute(
-                        "INSERT INTO product_user (user_id, product_id, created_at) VALUES (%s, %s, %s)",
-                        (user_id, product_id, now)
-                    )
-                    self.conn.commit()
-                    message_response = "Prodotto aggiunto correttamente, ora ti terremo aggiornato qualora il prezzo variasse."
-                except Error as e:
-                    message_response = f"Errore: {e}"
-            else:
-                message_response = 'Prodotto già presente nella tua lista dei prodotti che stai monitorando.'
-
+            with self.conn:
+                product_id = self.get_or_insert_product(amz_data, now)
+                user_id = self.get_or_insert_user(userid, username, now)
+                message_response = self.add_product_to_user(user_id, product_id, now)
         except Error as e:
             message_response = f"Errore durante l'accesso al database: {e}"
+            self.logger.error(message_response)
 
         return message_response
+
+    def get_or_insert_product(self, amz_data, now):
+        self.c.execute("SELECT id FROM products WHERE asin = %s OR product_name = %s", (amz_data[3], amz_data[1]))
+        result_product = self.c.fetchone()
+
+        if result_product:
+            return result_product[0]
+        else:
+            self.c.execute(
+                "INSERT INTO products (product_name, created_at, price, url, asin, category) VALUES (%s, %s, %s, %s, %s, %s)",
+                (amz_data[1], now, amz_data[0], amazonify(amz_data[4], AMAZON_AFFILIATE_TAG), amz_data[2], amz_data[3])
+            )
+            return self.c.lastrowid
+
+    def get_or_insert_user(self, userid, username, now):
+        self.c.execute("SELECT id FROM users WHERE idtelegram = %s", (userid,))
+        result_user = self.c.fetchone()
+
+        if result_user:
+            return result_user[0]
+        else:
+            self.c.execute(
+                "INSERT INTO users (nome, idtelegram, created_at) VALUES (%s, %s, %s)",
+                (username, userid, now)
+            )
+            return self.c.lastrowid
+
+    def add_product_to_user(self, user_id, product_id, now):
+        self.c.execute(
+            "SELECT product_id FROM product_user WHERE product_id = %s AND user_id = %s",
+            (product_id, user_id)
+        )
+        n_prod = self.c.fetchall()
+
+        if not n_prod:
+            try:
+                self.c.execute(
+                    "INSERT INTO product_user (user_id, product_id, created_at) VALUES (%s, %s, %s)",
+                    (user_id, product_id, now)
+                )
+                return "Prodotto aggiunto correttamente, ora ti terremo aggiornato qualora il prezzo variasse."
+            except Error as e:
+                return f"Errore: {e}"
+        else:
+            return 'Prodotto già presente nella tua lista dei prodotti che stai monitorando.'
 
     def get_user_products(self, userid):
         try:
@@ -106,7 +106,7 @@ class DatabaseManager:
         except Error as e:
             self.logger.error(f"Errore durante l'accesso al database: {e}")
             return []
-        
+
     def get_username_from_idtelegram(self, uid):
         try:
             self.c.execute("SELECT nome FROM users WHERE idtelegram = %s", (uid,))
@@ -118,17 +118,16 @@ class DatabaseManager:
     def delete_by_productid(self, pid, user):
         try:
             result_id = self.check_productuser_from_id(pid, user)
-            if result_id and result_id[0]:
+            if result_id:
                 self.c.execute("DELETE FROM product_user WHERE id = %s", (result_id[0],))
                 self.conn.commit()
-
                 return "Prodotto eliminato correttamente."
             else:
                 return "Il prodotto non esiste più."
         except Error as e:
             self.logger.error(f"Errore durante l'accesso al database: {e}")
             return []
-    
+
     def get_info_data(self, pid):
         try:
             self.c.execute("SELECT * FROM products WHERE id = %s", (pid,))
@@ -136,7 +135,7 @@ class DatabaseManager:
         except Error as e:
             self.logger.error(f"Errore durante l'accesso al database: {e}")
             return []
-        
+
     def check_productuser_from_id(self, pid, uid):
         try:
             self.c.execute("""
@@ -177,56 +176,25 @@ class DatabaseManager:
     def update_variation_price(self, idprod, oldprice, newprice):
         now = datetime.now().strftime('%Y-%m-%d')
         try:
-            self.c.execute("""
-                INSERT INTO variation_price (idprodotto, oldprice, newprice, updated_at) 
-                VALUES (%s, %s, %s, %s)
-            """, (idprod, oldprice, newprice, now))
-            self.c.execute("""
-                UPDATE products SET price = %s WHERE id = %s
-            """, (newprice, idprod))
-            self.conn.commit()
+            with self.conn:
+                self.c.execute("""
+                    INSERT INTO variation_price (idprodotto, oldprice, newprice, updated_at) 
+                    VALUES (%s, %s, %s, %s)
+                """, (idprod, oldprice, newprice, now))
+                self.c.execute("""
+                    UPDATE products SET price = %s WHERE id = %s
+                """, (newprice, idprod))
         except Error as e:
             self.logger.error(f"Errore durante l'accesso al database: {e}")
 
     def insert_new_productuser(self, params):
         now = datetime.now().strftime('%Y-%m-%d')
         try:
-            # Cerca l'utente per idtelegram
-            self.c.execute("SELECT id FROM users WHERE idtelegram = %s", (params['telegram_id'],))
-            result_user = self.c.fetchone()
-
-            if result_user:
-                user_id = result_user[0]
-            else:
-                self.c.execute(
-                    "INSERT INTO users (nome, idtelegram, created_at) VALUES (%s, %s, %s)",
-                    (params['username_dest'], params['telegram_id'], now)
-                )
-                user_id = self.c.lastrowid
-
-            self.conn.commit()
-
-            # Verifica se l'associazione utente-prodotto esiste già
-            self.c.execute(
-                "SELECT product_id FROM product_user WHERE product_id = %s AND user_id = %s",
-                (params['product_id'], user_id)
-            )
-            n_prod = self.c.fetchall()
-
-            if len(n_prod) == 0:
-                try:
-                    self.c.execute(
-                        "INSERT INTO product_user (user_id, product_id, created_at) VALUES (%s, %s, %s)",
-                        (user_id, params['product_id'], now)
-                    )
-                    self.conn.commit()
-                    message_response = "Prodotto aggiunto correttamente, ora ti terremo aggiornato qualora il prezzo variasse."
-                except Error as e:
-                    message_response = f"Errore: {e}"
-            else:
-                message_response = 'Prodotto già presente nella tua lista dei prodotti che stai monitorando.'
-
+            with self.conn:
+                user_id = self.get_or_insert_user(params['telegram_id'], params['username_dest'], now)
+                message_response = self.add_product_to_user(user_id, params['product_id'], now)
         except Error as e:
             message_response = f"Errore durante l'accesso al database: {e}"
+            self.logger.error(message_response)
 
         return message_response

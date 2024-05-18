@@ -3,6 +3,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQuer
 from amazon_scraper import AmazonScraper
 from database_manager import DatabaseManager
 from config import DB_HOST, DB_USER, DB_PASS, DB_NAME, logger
+from urllib import parse
 
 class TelegramBot:
     def __init__(self, token):
@@ -15,23 +16,16 @@ class TelegramBot:
         args = context.args
         uid_dest = update.message.chat.id
         if args:
-            pid = args[0].split("_")[0]
-            uid = args[0].split("_")[1]
-
-            username = self.db_manager.get_username_from_idtelegram(uid)[0][0]
-            if username:
-                text_user = f"Questo articolo è stato condiviso per te da <i>{username}</i>."
-            else:
-                text_user = f"Un prodotto Amazon è stato condiviso per te."
+            pid, uid = args[0].split("_")
+            username = self.db_manager.get_username_from_idtelegram(uid)[0][0] or "un utente"
+            text_user = f"Questo articolo è stato condiviso per te da <i>{username}</i>."
 
             if not self.db_manager.check_productuser_from_id(pid, uid_dest):
-                keyboard = [
-                            [InlineKeyboardButton("Aggiungi", callback_data=f"add_{pid}")]
-                        ]
+                keyboard = [[InlineKeyboardButton("Aggiungi", callback_data=f"add_{pid}")]]
                 reply_markup = InlineKeyboardMarkup(keyboard)
-                text_start = f"Premi su <b>AGGIUNGI</b> per aggiungerlo alla tua lista dei prodotti da monitorare. Ti avviserò ogni volta che il prezzo salirà o scenderà."
+                text_start = "Premi su <b>AGGIUNGI</b> per aggiungerlo alla tua lista dei prodotti da monitorare. Ti avviserò ogni volta che il prezzo salirà o scenderà."
             else:
-                reply_markup = ''
+                reply_markup = None
                 text_start = 'Articolo già presente nella tua lista.'
 
             product_message = self.info_product(pid)
@@ -41,13 +35,13 @@ class TelegramBot:
                 disable_web_page_preview=False,
                 reply_markup=reply_markup
             )
-            
+
             await update.message.reply_text(
                 text=f"{text_user} {text_start}",
                 parse_mode='HTML'
             )
         else:
-            welcome_message = f"Ciao! Il mio compito è quello di avvisarti se un prezzo di un prodotto fornito da Amazon si abbassa o si alza nei giorni a seguire."
+            welcome_message = "Ciao! Il mio compito è quello di avvisarti se un prezzo di un prodotto fornito da Amazon si abbassa o si alza nei giorni a seguire."
             await context.bot.send_message(chat_id=update.effective_chat.id, text=welcome_message)
 
     async def open_url(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -107,7 +101,6 @@ class TelegramBot:
             await context.bot.send_message(chat_id=update.effective_chat.id, text=message_error)
 
     async def button_callback_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        from urllib import parse
         query = update.callback_query
         await query.answer()
         
@@ -138,10 +131,10 @@ class TelegramBot:
         elif data.startswith("add_"):
             uid_dest = query.message.chat.id
             username_dest = self.user_identity(query.message.chat)
-            product_id = data.split("_")[1]
+            product_id = int(data.split("_")[1])
             params = {
                 "telegram_id": uid_dest,
-                "product_id": int(product_id),
+                "product_id": product_id,
                 "username_dest": username_dest
             }
 
@@ -157,7 +150,7 @@ class TelegramBot:
         if result:
             return f"<b>NOME</b>: <a href='{result[0][3]}'>{result[0][1]}</a> \n<b>PREZZO</b>: {result[0][2]} €\n<b>ASIN</b>: {result[0][4]} \n<b>CATEGORIA</b>: {result[0][5]}"
         else:
-            return f"Prodotto non esistente"
+            return "Prodotto non esistente"
         
     def user_identity(self, user):
         if user.username:
