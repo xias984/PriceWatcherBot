@@ -11,7 +11,7 @@ def main():
         for data in results:
             AmazonPrice = AS.fetch_amazon_data(data[2])[0]
             if float(AmazonPrice) and (float(AmazonPrice) != float(data[1])):
-                DM.update_variation_price(data[0], data[1], AmazonPrice)
+                db_manager.update_variation_price(data[0], data[1], AmazonPrice)
                 logger_cron.info(f'Prodotto {data[0]} aggiornato')
             time.sleep(60)
             

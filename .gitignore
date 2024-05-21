@@ -4,3 +4,5 @@ supervisord.pid
 supervisord.log
 /logs
 .env
+cron.log
+note.txt

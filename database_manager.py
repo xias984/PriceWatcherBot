@@ -10,10 +10,7 @@ class DatabaseManager:
         self.user = user
         self.password = password
         self.database = database
-        self.conn = None
-        self.c = None
         self.connect()
-        self.logger = logger
 
     def connect(self):
         try:
@@ -25,13 +22,15 @@ class DatabaseManager:
             )
             self.c = self.conn.cursor(buffered=True)
         except Error as e:
-            self.logger.error(f"Errore durante la connessione a MySQL: {e}")
+            logger.error(f"Errore durante la connessione a MySQL: {e}")
 
     def __enter__(self):
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if self.conn:
+            self.conn.commit()
+            self.c.close()
             self.conn.close()
 
     def insert_into_db(self, userid, username, amz_data):
@@ -39,13 +38,14 @@ class DatabaseManager:
         message_response = ""
 
         try:
-            with self.conn:
-                product_id = self.get_or_insert_product(amz_data, now)
-                user_id = self.get_or_insert_user(userid, username, now)
-                message_response = self.add_product_to_user(user_id, product_id, now)
+            product_id = self.get_or_insert_product(amz_data, now)
+            user_id = self.get_or_insert_user(userid, username, now)
+            message_response = self.add_product_to_user(user_id, product_id, now)
+            self.conn.commit()
         except Error as e:
+            self.conn.rollback()
             message_response = f"Errore durante l'accesso al database: {e}"
-            self.logger.error(message_response)
+            logger.error(message_response)
 
         return message_response
 
@@ -60,7 +60,6 @@ class DatabaseManager:
                 "INSERT INTO products (product_name, created_at, price, url, asin, category) VALUES (%s, %s, %s, %s, %s, %s)",
                 (amz_data[1], now, amz_data[0], amazonify(amz_data[4], AMAZON_AFFILIATE_TAG), amz_data[2], amz_data[3])
             )
-            self.conn.commit()
             return self.c.lastrowid
 
     def get_or_insert_user(self, userid, username, now):
@@ -74,7 +73,6 @@ class DatabaseManager:
                 "INSERT INTO users (nome, idtelegram, created_at) VALUES (%s, %s, %s)",
                 (username, userid, now)
             )
-            self.conn.commit()
             return self.c.lastrowid
 
     def add_product_to_user(self, user_id, product_id, now):
@@ -85,15 +83,11 @@ class DatabaseManager:
         n_prod = self.c.fetchall()
 
         if not n_prod:
-            try:
-                self.c.execute(
-                    "INSERT INTO product_user (user_id, product_id, created_at) VALUES (%s, %s, %s)",
-                    (user_id, product_id, now)
-                )
-                self.conn.commit()
-                return "Prodotto aggiunto correttamente, ora ti terremo aggiornato qualora il prezzo variasse."
-            except Error as e:
-                return f"Errore: {e}"
+            self.c.execute(
+                "INSERT INTO product_user (user_id, product_id, created_at) VALUES (%s, %s, %s)",
+                (user_id, product_id, now)
+            )
+            return "Prodotto aggiunto correttamente, ora ti terremo aggiornato qualora il prezzo variasse."
         else:
             return 'Prodotto già presente nella tua lista dei prodotti che stai monitorando.'
 
@@ -107,7 +101,7 @@ class DatabaseManager:
             """, (userid,))
             return self.c.fetchall()
         except Error as e:
-            self.logger.error(f"Errore durante l'accesso al database: {e}")
+            logger.error(f"Errore durante l'accesso al database: {e}")
             return []
 
     def get_username_from_idtelegram(self, uid):
@@ -115,7 +109,7 @@ class DatabaseManager:
             self.c.execute("SELECT nome FROM users WHERE idtelegram = %s", (uid,))
             return self.c.fetchall()
         except Error as e:
-            self.logger.error(f"Errore durante l'accesso al database: {e}")
+            logger.error(f"Errore durante l'accesso al database: {e}")
             return []
 
     def delete_by_productid(self, pid, user):
@@ -128,7 +122,8 @@ class DatabaseManager:
             else:
                 return "Il prodotto non esiste più."
         except Error as e:
-            self.logger.error(f"Errore durante l'accesso al database: {e}")
+            self.conn.rollback()
+            logger.error(f"Errore durante l'accesso al database: {e}")
             return []
 
     def get_info_data(self, pid):
@@ -136,7 +131,7 @@ class DatabaseManager:
             self.c.execute("SELECT * FROM products WHERE id = %s", (pid,))
             return self.c.fetchall()
         except Error as e:
-            self.logger.error(f"Errore durante l'accesso al database: {e}")
+            logger.error(f"Errore durante l'accesso al database: {e}")
             return []
 
     def check_productuser_from_id(self, pid, uid):
@@ -149,7 +144,7 @@ class DatabaseManager:
             """, (pid, uid))
             return self.c.fetchone()
         except Error as e:
-            self.logger.error(f"Errore durante l'accesso al database: {e}")
+            logger.error(f"Errore durante l'accesso al database: {e}")
             return []
 
     def get_price_for_scraping(self):
@@ -157,7 +152,7 @@ class DatabaseManager:
             self.c.execute("SELECT id, price, url FROM products")
             return self.c.fetchall()
         except Error as e:
-            self.logger.error(f"Errore durante l'accesso al database: {e}")
+            logger.error(f"Errore durante l'accesso al database: {e}")
             return []
 
     def get_recent_price_changes(self):
@@ -173,32 +168,33 @@ class DatabaseManager:
             """, (today,))
             return self.c.fetchall()
         except Error as e:
-            self.logger.error(f"Errore durante l'accesso al database: {e}")
+            logger.error(f"Errore durante l'accesso al database: {e}")
             return []
 
     def update_variation_price(self, idprod, oldprice, newprice):
         now = datetime.now().strftime('%Y-%m-%d')
         try:
-            with self.conn:
-                self.c.execute("""
-                    INSERT INTO variation_price (idprodotto, oldprice, newprice, updated_at) 
-                    VALUES (%s, %s, %s, %s)
-                """, (idprod, oldprice, newprice, now))
-                self.c.execute("""
-                    UPDATE products SET price = %s WHERE id = %s
-                """, (newprice, idprod))
-                self.conn.commit()
+            self.c.execute("""
+                INSERT INTO variation_price (idprodotto, oldprice, newprice, updated_at) 
+                VALUES (%s, %s, %s, %s)
+            """, (idprod, oldprice, newprice, now))
+            self.c.execute("""
+                UPDATE products SET price = %s WHERE id = %s
+            """, (newprice, idprod))
+            self.conn.commit()
         except Error as e:
-            self.logger.error(f"Errore durante l'accesso al database: {e}")
+            self.conn.rollback()
+            logger.error(f"Errore durante l'accesso al database: {e}")
 
     def insert_new_productuser(self, params):
         now = datetime.now().strftime('%Y-%m-%d')
         try:
-            with self.conn:
-                user_id = self.get_or_insert_user(params['telegram_id'], params['username_dest'], now)
-                message_response = self.add_product_to_user(user_id, params['product_id'], now)
+            user_id = self.get_or_insert_user(params['telegram_id'], params['username_dest'], now)
+            message_response = self.add_product_to_user(user_id, params['product_id'], now)
+            self.conn.commit()
         except Error as e:
+            self.conn.rollback()
             message_response = f"Errore durante l'accesso al database: {e}"
-            self.logger.error(message_response)
+            logger.error(message_response)
 
         return message_response
