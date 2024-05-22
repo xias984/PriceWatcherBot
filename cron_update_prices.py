@@ -17,4 +17,6 @@ def main():
             
 
 if __name__ == '__main__':
+    logger_cron.info(f"Inizio update prezzi")
     main()
+    logger_cron.info(f"Fine update prezzi")
