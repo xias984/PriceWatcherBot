@@ -148,7 +148,8 @@ class TelegramBot:
             chat_id=update.effective_chat.id,
             text=message,
             parse_mode='HTML',
-            disable_web_page_preview=False
+            disable_web_page_preview=False,
+            reply_markup=self.reply_markup_kb
         )
 
     async def share_product(self, update, context, pid):
@@ -160,7 +161,8 @@ class TelegramBot:
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text=share_message,
-            parse_mode='HTML'
+            parse_mode='HTML',
+            reply_markup=self.reply_markup_kb
         )
 
     async def add_product(self, query, pid):
