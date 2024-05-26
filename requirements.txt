@@ -1,4 +1,3 @@
-amazonify==0.1
 anyio==4.3.0
 beautifulsoup4==4.12.3
 bs4==0.0.2

@@ -119,6 +119,7 @@ class DatabaseManager:
             if result_id:
                 self.c.execute("DELETE FROM product_user WHERE id = %s", (result_id[0],))
                 self.conn.commit()
+                logger.info(f"Prodotto {pid} disabbinato da {user}")
                 return "Prodotto eliminato correttamente."
             else:
                 return "Il prodotto non esiste più."
