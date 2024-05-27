@@ -197,3 +197,42 @@ class DatabaseManager:
             logger.error(message_response)
 
         return message_response
+    
+    def get_all_users_with_products(self):
+        try:
+            self.c.execute("""
+                SELECT U.id, U.nome, U.idtelegram, U.created_at,
+                    P.id AS product_id, P.product_name, P.url, P.asin, P.price, P.category, P.created_at
+                FROM users U
+                LEFT JOIN product_user PU ON U.id = PU.user_id
+                LEFT JOIN products P ON PU.product_id = P.id
+                ORDER BY U.id
+            """)
+            rows = self.c.fetchall()
+            users = {}
+            for row in rows:
+                user_id = row[0]
+                if user_id not in users:
+                    users[user_id] = {
+                        "id": user_id,
+                        "nome": row[1],
+                        "idtelegram": row[2],
+                        "created_at": row[3].strftime('%Y-%m-%d %H:%M:%S'),
+                        "products": []
+                    }
+                if row[4]:
+                    product = {
+                        "id": row[4],
+                        "product_name": row[5],
+                        "url": row[6],
+                        "asin": row[7],
+                        "price": row[8],
+                        "category": row[9],
+                        "data": row[10].strftime('%Y-%m-%d %H:%M:%S')
+                    }
+                    users[user_id]["products"].append(product)
+            return list(users.values())
+        except Error as e:
+            logger.error(f"Errore durante l'accesso al database: {e}")
+            return []
+

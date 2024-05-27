@@ -7,6 +7,6 @@ RUN pip install -r requirements.txt
 COPY supervisord.conf /etc/supervisor/supervisord.conf
 COPY crontab.txt /app/crontab.txt
 RUN crontab /app/crontab.txt
-
+EXPOSE 5000
 VOLUME ["/var/log/supervisor"]
 CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf"]
