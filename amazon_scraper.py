@@ -21,6 +21,7 @@ class AmazonScraper:
             category = self.get_category(soup)
             asin = self.get_asin(soup)
             productName = self.get_product_name(soup)
+            print(price)
             return [price, productName, asin, category, url]
         except Exception as e:
             self.logger.error(f"Errore durante il fetch del prezzo: {e}")

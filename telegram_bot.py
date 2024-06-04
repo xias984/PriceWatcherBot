@@ -72,6 +72,7 @@ class TelegramBot:
     async def process_url(self, update: Update, context: ContextTypes.DEFAULT_TYPE, url, userid, username):
         if "amazon." in url or "amzn." in url:
             params = self.amazon_scraper.fetch_amazon_data(url)
+            self.logger.info(params)
             if params and params[0]:
                 keyboard = [
                     [InlineKeyboardButton("Condividi", callback_data=f"share_{userid}")]

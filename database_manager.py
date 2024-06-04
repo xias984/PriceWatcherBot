@@ -235,4 +235,26 @@ class DatabaseManager:
         except Error as e:
             logger.error(f"Errore durante l'accesso al database: {e}")
             return []
-
+        
+    def get_all_products(self):
+        try:
+            self.c.execute("SELECT * FROM products")
+            rows = self.c.fetchall()
+            
+            products = []
+            for row in rows:
+                product = {
+                    "id": row[0],
+                    "product_name": row[1],
+                    "price": row[2],
+                    "url": row[3],
+                    "asin": row[4],
+                    "category": row[5],
+                    "created_at": row[6].strftime('%Y-%m-%d %H:%M:%S')
+                }
+                products.append(product)
+            
+            return products
+        except Error as e:
+            logger.error(f"Errore durante l'accesso al database: {e}")
+            return []

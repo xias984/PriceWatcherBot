@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PriceWatcherBot Analytics</title>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .user-row {
+            cursor: pointer;
+        }
+        .fa-trash-can {
+            cursor: pointer;
+            color: red;
+        }
+    </style>
+</head>
+<body>
+    <h1>PriceWatcherBot Analytics</h1>
+    <h2>Utenti</h2>
+    <table id="userTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nome</th>
+                <th>ID Telegram</th>
+                <th>Data Inserimento</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <h2 id="reloadProducts">Prodotti</h2>
+    <table id="productTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Nome Prodotto</th>
+                <th>ASIN</th>
+                <th>Prezzo</th>
+                <th>Categoria</th>
+                <th>Data</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        $(document).ready(function() {
+            async function fetchData(url) {
+                return new Promise((resolve, reject) => {
+                    $.ajax({
+                        url: url,
+                        method: 'GET',
+                        success: function(data) {
+                            resolve(data);
+                        },
+                        error: function(error) {
+                            reject(error);
+                        }
+                    });
+                });
+            }
+
+            async function loadUsers() {
+                try {
+                    const data = await fetchData('/api/users');
+                    const $userTableBody = $('#userTable tbody');
+                    $userTableBody.empty(); // Pulisce eventuali dati precedenti
+                    data.forEach(user => {
+                        $userTableBody.append(`
+                            <tr class="user-row" data-user-id="${user.id}">
+                                <td>${user.id}</td>
+                                <td>${user.nome}</td>
+                                <td>${user.idtelegram}</td>
+                                <td>${user.created_at}</td>
+                            </tr>
+                        `);
+                    });
+
+                    // Gestione del click sull'utente
+                    $('.user-row').off('click').on('click', function() {
+                        const userId = $(this).data('user-id');
+                        const user = data.find(user => user.id === userId);
+                        const $productTableBody = $('#productTable tbody');
+                        $productTableBody.empty(); // Pulisce eventuali dati precedenti
+
+                        user.products.forEach(product => {
+                            $productTableBody.append(`
+                                <tr>
+                                    <td>${product.id}</td>
+                                    <td><a href="${product.url}" target="_blank">${product.product_name}</a></td>
+                                    <td>${product.asin}</td>
+                                    <td>${product.price}</td>
+                                    <td>${product.category}</td>
+                                    <td>${product.data}</td>
+                                </tr>
+                            `);
+                        });
+                    });
+                } catch (error) {
+                    console.error('Errore durante il recupero degli utenti:', error);
+                }
+            }
+
+            async function loadProducts() {
+                try {
+                    const data = await fetchData('/api/products');
+                    const $productTableBody = $('#productTable tbody');
+                    $productTableBody.empty(); // Pulisce eventuali dati precedenti
+                    data.forEach(product => {
+                        $productTableBody.append(`
+                            <tr>
+                                <td>${product.id}</td>
+                                <td><a href="${product.url}" target="_blank">${product.product_name}</a></td>
+                                <td>${product.asin}</td>
+                                <td>${product.price}</td>
+                                <td>${product.category}</td>
+                                <td>${product.created_at}</td>
+                            </tr>
+                        `);
+                    });
+                } catch (error) {
+                    console.error('Errore durante il recupero dei prodotti:', error);
+                }
+            }
+
+            // Carica gli utenti e i prodotti
+            async function initialize() {
+                await loadUsers();
+                await loadProducts();
+            }
+
+            initialize();
+
+            // Ricarica i prodotti quando si clicca su <h2>Prodotti</h2>
+            $('#reloadProducts').on('click', function() {
+                loadProducts();
+            });
+        });
+    </script>
+</body>
+</html>
