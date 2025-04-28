@@ -11,8 +11,6 @@ class DatabaseManager:
         self.password = password
         self.database = database
         self.connect()
-        self.now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        self.today = datetime.now().strftime('%Y-%m-%d')
 
     def connect(self):
         try:
@@ -23,8 +21,22 @@ class DatabaseManager:
                 database=self.database
             )
             self.c = self.conn.cursor(buffered=True)
+            logger.info("Connessione MySQL aperta correttamente.")
         except Error as e:
             logger.error(f"Errore durante la connessione a MySQL: {e}")
+
+    def ensure_connection(self):
+        if not self.conn.is_connected():
+            logger.info("Connessione MySQL scaduta, provo a riconnettermi...")
+            self.connect()
+
+    @property
+    def now(self):
+        return datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+    @property
+    def today(self):
+        return datetime.now().strftime('%Y-%m-%d')
 
     def __enter__(self):
         return self
@@ -36,8 +48,8 @@ class DatabaseManager:
             self.conn.close()
 
     def insert_into_db(self, userid, username, amz_data):
+        self.ensure_connection()
         message_response = ""
-
         try:
             product_id = self.get_or_insert_product(amz_data)
             user_id = self.get_or_insert_user(userid, username)
@@ -47,13 +59,12 @@ class DatabaseManager:
             self.conn.rollback()
             message_response = f"Errore durante l'accesso al database: {e}"
             logger.error(message_response)
-
         return message_response
 
     def get_or_insert_product(self, amz_data):
+        self.ensure_connection()
         self.c.execute("SELECT id FROM products WHERE asin = %s OR product_name = %s", (amz_data[3], amz_data[1]))
         result_product = self.c.fetchone()
-
         if result_product:
             return result_product[0]
         else:
@@ -63,26 +74,28 @@ class DatabaseManager:
             )
             return self.c.lastrowid
 
-    def get_or_insert_user(self, userid, username):
+    def get_or_insert_user(self, userid, username, created_at=None):
+        self.ensure_connection()
         self.c.execute("SELECT id FROM users WHERE idtelegram = %s", (userid,))
         result_user = self.c.fetchone()
-
         if result_user:
             return result_user[0]
         else:
+            if not created_at:
+                created_at = self.now
             self.c.execute(
                 "INSERT INTO users (nome, idtelegram, created_at) VALUES (%s, %s, %s)",
-                (username, userid, self.now)
+                (username, userid, created_at)
             )
             return self.c.lastrowid
 
     def add_product_to_user(self, user_id, product_id):
+        self.ensure_connection()
         self.c.execute(
             "SELECT product_id FROM product_user WHERE product_id = %s AND user_id = %s",
             (product_id, user_id)
         )
         n_prod = self.c.fetchall()
-
         if not n_prod:
             self.c.execute(
                 "INSERT INTO product_user (user_id, product_id, created_at) VALUES (%s, %s, %s)",
@@ -93,6 +106,7 @@ class DatabaseManager:
             return 'Prodotto già presente nella tua lista dei prodotti che stai monitorando.'
 
     def get_user_products(self, userid):
+        self.ensure_connection()
         try:
             self.c.execute("""
                 SELECT P.* FROM products AS P 
@@ -106,6 +120,7 @@ class DatabaseManager:
             return []
 
     def get_username_from_idtelegram(self, uid):
+        self.ensure_connection()
         try:
             self.c.execute("SELECT nome FROM users WHERE idtelegram = %s", (uid,))
             return self.c.fetchall()
@@ -114,6 +129,7 @@ class DatabaseManager:
             return []
 
     def delete_by_productid(self, pid, user):
+        self.ensure_connection()
         try:
             result_id = self.check_productuser_from_id(pid, user)
             if result_id:
@@ -129,6 +145,7 @@ class DatabaseManager:
             return []
 
     def get_info_data(self, pid):
+        self.ensure_connection()
         try:
             self.c.execute("SELECT * FROM products WHERE id = %s", (pid,))
             return self.c.fetchall()
@@ -137,6 +154,7 @@ class DatabaseManager:
             return []
 
     def check_productuser_from_id(self, pid, uid):
+        self.ensure_connection()
         try:
             self.c.execute("""
                 SELECT PU.id FROM products AS P
@@ -150,6 +168,7 @@ class DatabaseManager:
             return []
 
     def get_price_for_scraping(self):
+        self.ensure_connection()
         try:
             self.c.execute("SELECT id, price, url FROM products")
             return self.c.fetchall()
@@ -158,6 +177,7 @@ class DatabaseManager:
             return []
 
     def get_recent_price_changes(self):
+        self.ensure_connection()
         try:
             self.c.execute("""
                 SELECT P.product_name, P.url, U.idtelegram, VP.newprice, VP.oldprice, P.id
@@ -173,6 +193,7 @@ class DatabaseManager:
             return []
 
     def update_variation_price(self, idprod, oldprice, newprice):
+        self.ensure_connection()
         try:
             self.c.execute("""
                 INSERT INTO variation_price (idprodotto, oldprice, newprice, updated_at) 
@@ -187,6 +208,7 @@ class DatabaseManager:
             logger.error(f"Errore durante l'accesso al database: {e}")
 
     def insert_new_productuser(self, params):
+        self.ensure_connection()
         try:
             user_id = self.get_or_insert_user(params['telegram_id'], params['username_dest'], self.now)
             message_response = self.add_product_to_user(user_id, params['product_id'], self.now)
@@ -199,6 +221,7 @@ class DatabaseManager:
         return message_response
     
     def get_all_users_with_products(self):
+        self.ensure_connection()
         try:
             self.c.execute("""
                 SELECT U.id, U.nome, U.idtelegram, U.created_at,
@@ -237,6 +260,7 @@ class DatabaseManager:
             return []
         
     def get_all_products(self):
+        self.ensure_connection()
         try:
             self.c.execute("SELECT * FROM products")
             rows = self.c.fetchall()

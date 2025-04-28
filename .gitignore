@@ -6,3 +6,4 @@ supervisord.log
 .env
 cron.log
 note.txt
+*.save

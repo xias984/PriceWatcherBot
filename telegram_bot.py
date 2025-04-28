@@ -197,7 +197,6 @@ class TelegramBot:
             text="Inserisci l'URL di Amazon"
         )
         self.user_states[user_id] = 'awaiting_url'
-        self.logger.info(self.user_states[user_id])
 
     def info_product(self, pid):
         result = self.db_manager.get_info_data(pid)
