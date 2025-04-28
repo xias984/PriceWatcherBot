@@ -153,6 +153,22 @@ class DatabaseManager:
             logger.error(f"Errore durante l'accesso al database: {e}")
             return []
 
+    def get_diff_price_by_productid(self, pid):
+        self.ensure_connection()
+        try:
+            self.c.execute("""
+                SELECT vp.newprice, vp.oldprice, vp.updated_at 
+                FROM variation_price as vp 
+                LEFT JOIN products as p on vp.idprodotto = p.id
+                WHERE p.id = %s
+                ORDER BY vp.updated_at DESC
+                LIMIT 1
+            """, (pid,))
+            return self.c.fetchall()
+        except Error as e:
+            logger.error(f"Errore durante l'accesso al database: {e}")
+            return []
+
     def check_productuser_from_id(self, pid, uid):
         self.ensure_connection()
         try:

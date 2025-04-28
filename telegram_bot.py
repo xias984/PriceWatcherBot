@@ -107,7 +107,9 @@ class TelegramBot:
     async def display_products_list(self, update: Update, context: ContextTypes.DEFAULT_TYPE, results):
         for record in results:
             pid, product_name, product_price, product_url = record[0], record[1], record[2], record[3]
-            message = f"<a href='{product_url}'>{product_name}</a> - {product_price} €"
+            discount_message = self.get_discount_message(pid)
+
+            message = f"<a href='{product_url}'>{product_name}</a> - {product_price} € {discount_message}\n"
 
             keyboard = [
                 [InlineKeyboardButton("Cancella", callback_data=f"delete_{pid}"),
@@ -122,6 +124,23 @@ class TelegramBot:
                 disable_web_page_preview=True,
                 reply_markup=reply_markup
             )
+
+    def get_discount_message(self, pid):
+        diff_price = self.db_manager.get_diff_price_by_productid(pid)
+
+        if diff_price and len(diff_price) > 0 and diff_price[0][0] is not None and diff_price[0][1] is not None:
+            prezzo_attuale = float(diff_price[0][0])
+            prezzo_precedente = float(diff_price[0][1])
+
+            if prezzo_attuale < prezzo_precedente:
+                sconto = ((prezzo_precedente - prezzo_attuale) / prezzo_precedente) * 100
+                sconto = int(round(sconto))
+                return f"\n<b>🔥 SCONTO {sconto} %</b>"
+            elif prezzo_attuale > prezzo_precedente:
+                aumento = int(round(((prezzo_attuale - prezzo_precedente) / prezzo_precedente) * 100))
+                return f"\n<b>📈 AUMENTATO DEL {aumento}%</b>"
+        
+        return ""
 
     async def button_callback_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         query = update.callback_query
@@ -199,11 +218,36 @@ class TelegramBot:
         self.user_states[user_id] = 'awaiting_url'
 
     def info_product(self, pid):
+        from datetime import datetime
+
         result = self.db_manager.get_info_data(pid)
+        diff_price = self.db_manager.get_diff_price_by_productid(pid)
+
         if result:
-            return f"<b>NOME</b>: <a href='{result[0][3]}'>{result[0][1]}</a> \n<b>PREZZO</b>: {result[0][2]} €\n<b>ASIN</b>: {result[0][4]} \n<b>CATEGORIA</b>: {result[0][5]}"
+            message = f"<b>NOME</b>: <a href='{result[0][3]}'>{result[0][1]}</a> \n<b>ASIN</b>: {result[0][4]} \n<b>CATEGORIA</b>: {result[0][5]}"
+            
+            if diff_price and len(diff_price) > 0 and diff_price[0][0] is not None:
+                updated_at_raw = diff_price[0][2]
+                try:
+                    updated_at_dt = datetime.strptime(str(updated_at_raw), "%Y-%m-%d %H:%M:%S")
+                    updated_at_str = updated_at_dt.strftime("%d-%m-%Y")
+                except Exception as e:
+                    updated_at_str = str(updated_at_raw)
+
+                prezzo_attuale = float(diff_price[0][0])
+                prezzo_precedente = float(diff_price[0][1])
+
+                message += f"\n<b>PREZZO ATTUALE</b>: {prezzo_attuale} € <i>(aggiornato il {updated_at_str})</i>\n<b>PREZZO PRECEDENTE</b>: {prezzo_precedente} €"
+
+                discount_message = self.get_discount_message(pid)
+                if discount_message:
+                    message += discount_message
+            else:
+                message += f"\n<b>PREZZO</b>: {result[0][2]} €\n"
         else:
-            return "Prodotto non esistente"
+            message = "Prodotto non esistente"
+
+        return message
         
     def user_identity(self, user):
         if user.username:
