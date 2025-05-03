@@ -73,20 +73,68 @@ class TelegramBot:
         if "amazon." in url or "amzn." in url:
             params = self.amazon_scraper.fetch_amazon_data(url)
             self.logger.info(params)
-            if params and params[0]:
+
+            if not params:
+                self.logger.info(f"Parsing fallito: {url}")
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text="Errore nell'analisi del prodotto. Riprova più tardi.",
+                    reply_markup=self.reply_markup_kb
+                )
+                return
+
+            price = params[0]
+
+            if price == "Prezzo non trovato":
+                self.logger.info(f"Prezzo non trovato per URL: {url}")
                 keyboard = [
-                    [InlineKeyboardButton("Condividi", callback_data=f"share_{userid}")]
+                    [InlineKeyboardButton("Segnala", callback_data=f"report_{userid}")]
                 ]
                 reply_markup = InlineKeyboardMarkup(keyboard)
-                message_response = self.db_manager.insert_into_db(userid, username, params)
-                self.logger.info(f"Associazione utente {userid} con prodotto (ASIN) {params[2]} creata")
-                await context.bot.send_message(chat_id=update.effective_chat.id, text=message_response, reply_markup=reply_markup)
-            else:
-                self.logger.info(f"Informazioni prodotto non trovate: {url}")
-                await context.bot.send_message(chat_id=update.effective_chat.id, text="Non sono riuscito a trovare il prezzo.", reply_markup=self.reply_markup_kb)
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text="⚠️ Non sono riuscito a trovare il prezzo per questo prodotto.",
+                    reply_markup=reply_markup
+                )
+                return
+
+            # Prodotto valido, si prova inserimento nel DB
+            message_response = self.db_manager.insert_into_db(userid, username, params)
+
+            # Se c'è stato un errore, interrompi prima di mostrare bottoni o log di successo
+            if "errore" in message_response.lower():
+                self.logger.warning(f"Inserimento fallito per l'utente {userid} - {message_response}")
+                keyboard = [
+                    [InlineKeyboardButton("Segnala", callback_data=f"report_{userid}")]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text=message_response,
+                    reply_markup=self.reply_markup
+                )
+                return
+
+            # Inserimento riuscito
+            keyboard = [
+                [InlineKeyboardButton("Condividi", callback_data=f"share_{userid}")]
+            ]
+            reply_markup = InlineKeyboardMarkup(keyboard)
+            self.logger.info(f"Associazione utente {userid} con prodotto (ASIN) {params[2]} creata")
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text=message_response,
+                reply_markup=reply_markup
+            )
+
         else:
-            self.logger.info(f"Url non valido: {url}")
-            await context.bot.send_message(chat_id=update.effective_chat.id, text="URL non supportato per lo scraping del prezzo.", reply_markup=self.reply_markup_kb)
+            self.logger.info(f"URL non valido: {url}")
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="URL non supportato per lo scraping del prezzo.",
+                reply_markup=self.reply_markup_kb
+            )
+
 
     async def products_list(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user = update.effective_user

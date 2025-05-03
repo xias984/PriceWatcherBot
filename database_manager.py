@@ -57,8 +57,8 @@ class DatabaseManager:
             self.conn.commit()
         except Error as e:
             self.conn.rollback()
-            message_response = f"Errore durante l'accesso al database: {e}"
-            logger.error(message_response)
+            message_response = f"Prodotto non aggiunto per un'errore nei dati recuperati"
+            logger.error(f"Errore durante l'inserimento nel database: {e}")
         return message_response
 
     def get_or_insert_product(self, amz_data):

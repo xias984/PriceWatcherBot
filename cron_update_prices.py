@@ -15,7 +15,6 @@ def main():
             if float(AmazonPrice) and (float(AmazonPrice) != float(data[1])):
                 db_manager.update_variation_price(data[0], data[1], AmazonPrice)
                 logger_cron.info(f'Prodotto {data[0]} aggiornato')
-            logger_cron.info(f"Prodotto {data[0]} analizzato. Prezzo {AmazonPrice}")
             time.sleep(60)
             
 

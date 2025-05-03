@@ -2,6 +2,7 @@ import requests
 from bs4 import BeautifulSoup
 import random
 from config import logger
+import re
 
 class AmazonScraper:
     def __init__(self):
@@ -27,16 +28,47 @@ class AmazonScraper:
             return None
 
     def get_price(self, soup):
-        list_input_id = ['priceValue', 'twister-plus-price-data-price']
-        for input_id in list_input_id:
-            price = soup.find('input', id=input_id)
-            if price and 'value' in price.attrs:
-                return price['value'].strip()
-        price_span = soup.find('span', id='priceblock_ourprice')
-        if price_span:
-            return price_span.text.strip()
-        return 'Non disponibile'
+        try:
+            # 1. Prova con gli input ID noti
+            list_input_id = ['priceValue', 'twister-plus-price-data-price']
+            for input_id in list_input_id:
+                price = soup.find('input', id=input_id)
+                if price and 'value' in price.attrs:
+                    return self.clean_price(price['value'])
 
+            # 2. Prova con ID classico Amazon (fallback legacy)
+            price_span = soup.find('span', id='priceblock_ourprice')
+            if price_span:
+                return self.clean_price(price_span.text)
+
+            # 3. Prova a costruire prezzo da a-price-whole + a-price-fraction
+            price_container = soup.find('span', class_='a-price')
+            if price_container:
+                whole = price_container.find('span', class_='a-price-whole')
+                fraction = price_container.find('span', class_='a-price-fraction')
+                if whole and fraction:
+                    return self.clean_price(f"{whole.text.strip()}.{fraction.text.strip()}")
+
+            # Nessun prezzo trovato
+            self.logger.info("Nessun prezzo trovato")
+            return 'Prezzo non trovato'
+
+        except Exception as e:
+            self.logger.error(f"Errore durante l'estrazione del prezzo: {e}")
+            return 'Prezzo non trovato'
+
+    def clean_price(self, raw_price):
+        """
+        Pulisce il prezzo, estraendo numeri e punto decimale.
+        """
+        clean = raw_price.replace('€', '').replace(',', '.').strip()
+        # Rimuove tutto ciò che non è cifra o punto
+        clean = re.sub(r'[^\d.]', '', clean)
+        # Se ci sono più punti, prende solo il primo come decimale
+        parts = clean.split('.')
+        if len(parts) > 2:
+            clean = f"{parts[0]}.{''.join(parts[1:])}"
+        return clean
 
     def get_category(self, soup):
         first_span = soup.find('ul', class_="a-unordered-list a-horizontal a-size-small")
