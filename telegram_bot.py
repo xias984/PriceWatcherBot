@@ -176,20 +176,13 @@ class TelegramBot:
             )
 
     def get_discount_message(self, pid):
-        diff_price = self.db_manager.get_diff_price_by_productid(pid)
-
-        if diff_price and len(diff_price) > 0 and diff_price[0][0] is not None and diff_price[0][1] is not None:
-            prezzo_attuale = float(diff_price[0][0])
-            prezzo_precedente = float(diff_price[0][1])
-
-            if prezzo_attuale < prezzo_precedente:
-                sconto = ((prezzo_precedente - prezzo_attuale) / prezzo_precedente) * 100
-                sconto = int(round(sconto))
-                return f"\n<b>🔥 SCONTO {sconto} %</b>"
-            elif prezzo_attuale > prezzo_precedente:
-                aumento = int(round(((prezzo_attuale - prezzo_precedente) / prezzo_precedente) * 100))
-                return f"\n<b>📈 AUMENTATO DEL {aumento}%</b>"
+        from bot_utils.message_formatter import format_discount
         
+        diff_price = self.db_manager.get_diff_price_by_productid(pid)
+        if diff_price and diff_price[0][0] is not None and diff_price[0][1] is not None:
+            current = float(diff_price[0][0])
+            previous = float(diff_price[0][1])
+            return format_discount(current, previous)
         return ""
 
     async def button_callback_handler(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
