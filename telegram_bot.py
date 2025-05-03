@@ -5,6 +5,7 @@ from database_manager import DatabaseManager
 from config import DB_HOST, DB_USER, DB_PASS, DB_NAME, logger
 from urllib import parse
 from bot_utils.message_formatter import format_product_info
+from repositories.product_repository import ProductRepository
 
 class TelegramBot:
     def __init__(self, token):
@@ -16,6 +17,7 @@ class TelegramBot:
         self.keyboard = [[KeyboardButton("Aggiungi URL"), KeyboardButton("Lista Prodotti")]]
         self.reply_markup_kb = ReplyKeyboardMarkup(self.keyboard, resize_keyboard=True)
         self.welcomed_users = set()
+        self.product_repo = ProductRepository(self.db_manager)
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         args = context.args
@@ -140,20 +142,24 @@ class TelegramBot:
 
 
     async def products_list(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-        user = update.effective_user
-        userid = str(user.id)
-        
+        user_id = str(update.effective_user.id)
         try:
-            results = self.db_manager.get_user_products(userid)
+            results = self.product_repo.list_user_tracked_products(user_id)
             if results:
                 await self.display_products_list(update, context, results)
             else:
-                message = "Non hai ancora inserito nessun prodotto da Amazon. Inserisci il prodotto che t'interessa con /url"
-                await context.bot.send_message(chat_id=update.effective_chat.id, text=message)
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text="Non hai ancora inserito nessun prodotto da Amazon.",
+                    reply_markup=self.reply_markup_kb
+                )
         except Exception as e:
-            message_error = f"Errore durante l'accesso al database: {e}"
-            self.logger.error(message_error)
-            await context.bot.send_message(chat_id=update.effective_chat.id, text=message_error)
+            self.logger.error(f"Errore durante l'accesso al database: {e}")
+            await context.bot.send_message(
+                chat_id=update.effective_chat.id,
+                text="Errore nel recupero dei prodotti.",
+                reply_markup=self.reply_markup_kb
+            )
 
     async def display_products_list(self, update: Update, context: ContextTypes.DEFAULT_TYPE, results):
         for record in results:
