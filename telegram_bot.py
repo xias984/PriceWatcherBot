@@ -4,6 +4,7 @@ from amazon_scraper import AmazonScraper
 from database_manager import DatabaseManager
 from config import DB_HOST, DB_USER, DB_PASS, DB_NAME, logger
 from urllib import parse
+from bot_utils.message_formatter import format_product_info
 
 class TelegramBot:
     def __init__(self, token):
@@ -265,36 +266,15 @@ class TelegramBot:
         self.user_states[user_id] = 'awaiting_url'
 
     def info_product(self, pid):
-        from datetime import datetime
-
         result = self.db_manager.get_info_data(pid)
         diff_price = self.db_manager.get_diff_price_by_productid(pid)
 
-        if result:
-            message = f"<b>NOME</b>: <a href='{result[0][3]}'>{result[0][1]}</a> \n<b>ASIN</b>: {result[0][4]} \n<b>CATEGORIA</b>: {result[0][5]}"
-            
-            if diff_price and len(diff_price) > 0 and diff_price[0][0] is not None:
-                updated_at_raw = diff_price[0][2]
-                try:
-                    updated_at_dt = datetime.strptime(str(updated_at_raw), "%Y-%m-%d %H:%M:%S")
-                    updated_at_str = updated_at_dt.strftime("%d-%m-%Y")
-                except Exception as e:
-                    updated_at_str = str(updated_at_raw)
+        if not result:
+            return "Prodotto non esistente"
 
-                prezzo_attuale = float(diff_price[0][0])
-                prezzo_precedente = float(diff_price[0][1])
-
-                message += f"\n<b>PREZZO ATTUALE</b>: {prezzo_attuale} € <i>(aggiornato il {updated_at_str})</i>\n<b>PREZZO PRECEDENTE</b>: {prezzo_precedente} €"
-
-                discount_message = self.get_discount_message(pid)
-                if discount_message:
-                    message += discount_message
-            else:
-                message += f"\n<b>PREZZO</b>: {result[0][2]} €\n"
-        else:
-            message = "Prodotto non esistente"
-
-        return message
+        result_row = result[0]
+        diff_row = diff_price[0] if diff_price else None
+        return format_product_info(result_row, diff_row)
         
     def user_identity(self, user):
         if user.username:
