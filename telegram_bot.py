@@ -14,6 +14,7 @@ class TelegramBot:
         self.user_states = {}
         self.keyboard = [[KeyboardButton("Aggiungi URL"), KeyboardButton("Lista Prodotti")]]
         self.reply_markup_kb = ReplyKeyboardMarkup(self.keyboard, resize_keyboard=True)
+        self.welcomed_users = set()
 
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         args = context.args
@@ -52,6 +53,7 @@ class TelegramBot:
         )
 
     async def send_welcome_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        self.logger.info(f"Utente {update.message.chat.id} ha avviato il bot.")
         welcome_message = "Ciao! Il mio compito è quello di avvisarti se un prezzo di un prodotto fornito da Amazon si abbassa o si alza nei giorni a seguire."
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
@@ -250,6 +252,10 @@ class TelegramBot:
         user_id = update.message.from_user.id
         text = update.message.text
         
+        if user_id not in self.welcomed_users:
+            self.welcomed_users.add(user_id)
+            await self.start(update, context)
+            return
         if text == 'Aggiungi URL':
             await self.request_url(update, context, user_id)
         elif self.user_states.get(user_id) == 'awaiting_url':
