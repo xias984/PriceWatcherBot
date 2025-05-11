@@ -29,6 +29,7 @@ def format_product_info(result_row, diff_price_row=None):
     message = f"<b>NOME</b>: <a href='{url}'>{name}</a>\n<b>ASIN</b>: {asin}\n<b>CATEGORIA</b>: {category}"
 
     if diff_price_row and diff_price_row[0] is not None:
+        print(diff_price_row)
         current, previous, updated_at = diff_price_row
         try:
             updated_at_str = datetime.strptime(str(updated_at), "%Y-%m-%d %H:%M:%S").strftime("%d-%m-%Y")

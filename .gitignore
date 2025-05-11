@@ -8,3 +8,6 @@ supervisord.log
 cron.log
 note.txt
 *.save
+session_listener/PriceWatcherBot.session
+PriceWatcherBot.session
+PriceWatcherBot.session-journal

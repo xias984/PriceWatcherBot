@@ -30,7 +30,7 @@ class TelegramBot:
 
     async def handle_shared_product(self, update: Update, context: ContextTypes.DEFAULT_TYPE, args, uid_dest):
         pid, uid = args[0].split("_")
-        username = self.db_manager.get_username_from_idtelegram(uid)[0][0] or "un utente"
+        username = self.product_repo.get_username_by_telegram_id(uid)
         text_user = f"Questo articolo è stato condiviso per te da <i>{username}</i>."
 
         if not self.db_manager.check_productuser_from_id(pid, uid_dest):
@@ -104,7 +104,7 @@ class TelegramBot:
                 return
 
             # Prodotto valido, si prova inserimento nel DB
-            message_response = self.db_manager.insert_into_db(userid, username, params)
+            message_response = self.product_repo.track_product_for_user(userid, username, params)
 
             # Se c'è stato un errore, interrompi prima di mostrare bottoni o log di successo
             if "errore" in message_response.lower():
@@ -185,7 +185,7 @@ class TelegramBot:
     def get_discount_message(self, pid):
         from bot_utils.message_formatter import format_discount
         
-        diff_price = self.db_manager.get_diff_price_by_productid(pid)
+        diff_price = self.product_repo.get_price_change(pid)
         if diff_price and diff_price[0][0] is not None and diff_price[0][1] is not None:
             current = float(diff_price[0][0])
             previous = float(diff_price[0][1])
@@ -209,7 +209,7 @@ class TelegramBot:
             await self.add_product(query, pid)
 
     async def delete_product(self, query, pid):
-        response = self.db_manager.delete_by_productid(pid, query.message.chat.id)
+        response = self.product_repo.delete_user_product(pid, query.message.chat.id)
         await query.edit_message_text(text=response)
 
     async def send_product_info(self, update, context, pid):
@@ -223,9 +223,8 @@ class TelegramBot:
         )
 
     async def share_product(self, update, context, pid):
-        params = f"{pid}_{update.effective_chat.id}"
-        encoded_params = parse.quote_plus(params)
-        url = f"https://t.me/bestpriceamzbot?start={encoded_params}"
+        url = self.product_repo.share_url_for_product(pid, update.effective_chat.id)
+
         self.logger.info(f"Generated URL for sharing: {url}")
         share_message = f"Condividi questo prodotto con gli altri! Clicca qui: {url}"
         await context.bot.send_message(
@@ -239,14 +238,10 @@ class TelegramBot:
         uid_dest = query.message.chat.id
         username_dest = self.user_identity(query.message.chat)
         product_id = int(pid)
-        params = {
-            "telegram_id": uid_dest,
-            "product_id": product_id,
-            "username_dest": username_dest
-        }
-        added_message = self.db_manager.insert_new_productuser(params)
+
+        added_message = self.product_repo.associate_existing_product_to_user(product_id, uid_dest, username_dest)
         await query.message.reply_text(text=added_message)
-        self.logger.info(f"Utente con id telegram {params['telegram_id']} ha aggiunto prodotto con id {params['product_id']}")
+        self.logger.info(f"Utente con id telegram {username_dest} ha aggiunto prodotto con id {product_id}")
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_id = update.message.from_user.id
@@ -272,8 +267,8 @@ class TelegramBot:
         self.user_states[user_id] = 'awaiting_url'
 
     def info_product(self, pid):
-        result = self.db_manager.get_info_data(pid)
-        diff_price = self.db_manager.get_diff_price_by_productid(pid)
+        result = self.product_repo.get_product_details(pid)
+        diff_price = self.product_repo.get_price_change(pid)
 
         if not result:
             return "Prodotto non esistente"
